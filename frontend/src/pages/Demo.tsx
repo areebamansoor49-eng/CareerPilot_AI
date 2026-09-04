@@ -135,22 +135,22 @@ function Demo() {
 
               {/* Video Player */}
 
-              <div className="relative bg-black">
-                <video
-                  className="block h-auto max-h-[700px] w-full object-contain"
-                  controls
-                  playsInline
-                  preload="metadata"
-                  poster="/careerpilot-demo-poster.png"
-                >
-                  <source
-                    src="/careerpilot-demo.mp4"
-                    type="video/mp4"
-                  />
+             <div className="relative bg-black">
+  <video
+    className="block h-auto max-h-[700px] w-full object-contain"
+    controls
+    playsInline
+    preload="metadata"
+    width="1920"
+  >
+    <source
+      src="/careerpilot-demo.mp4"
+      type="video/mp4"
+    />
 
-                  Your browser does not support the video tag.
-                </video>
-              </div>
+    Your browser does not support the video tag.
+  </video>
+</div>
             </div>
           </div>
 
