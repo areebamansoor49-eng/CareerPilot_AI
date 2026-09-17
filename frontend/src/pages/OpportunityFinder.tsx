@@ -81,7 +81,10 @@ function OpportunityFinder() {
         String(currentPage)
       );
 
-      const url = `http://localhost:5000/api/jobs/search?${params.toString()}`;
+      const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+const url = `${API_URL}/api/jobs/search?${params.toString()}`;
 
       const response = await fetch(url);
 

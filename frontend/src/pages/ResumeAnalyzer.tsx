@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FaCloudUploadAlt,
   FaFileAlt,
@@ -11,6 +11,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import {
   canUseFeature,
+  getCurrentUserEmail,
+  hasUsedFreeAttempt,
   isSubscribed,
   markFeatureUsed,
 } from "../utils/subscription";
@@ -47,17 +49,91 @@ interface ResumeData {
   pages: number;
 }
 
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 function ResumeAnalyzer() {
   const navigate = useNavigate();
 
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef =
+    useRef<HTMLInputElement | null>(null);
 
   const [loading, setLoading] = useState(false);
+  const [checkingAccess, setCheckingAccess] =
+    useState(true);
+
   const [error, setError] = useState("");
   const [analysis, setAnalysis] =
     useState<ResumeAnalysis | null>(null);
+
   const [fileName, setFileName] = useState("");
   const [uploaded, setUploaded] = useState(false);
+
+  const [subscribed, setSubscribed] =
+    useState(false);
+
+  const [freeAttemptUsed, setFreeAttemptUsed] =
+    useState(false);
+
+  // =========================================================
+  // CHECK LOGIN + SUBSCRIPTION
+  // =========================================================
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkAccess = async () => {
+      const email = getCurrentUserEmail();
+
+      // User must be logged in
+      if (!email) {
+        navigate("/login", {
+          state: {
+            redirectTo: "/resume-analyzer",
+          },
+          replace: true,
+        });
+
+        return;
+      }
+
+      try {
+        const subscription =
+          await isSubscribed();
+
+        if (!mounted) {
+          return;
+        }
+
+        setSubscribed(subscription);
+        setFreeAttemptUsed(
+          hasUsedFreeAttempt("resumeAnalyzer")
+        );
+      } catch (err) {
+        console.error(
+          "Resume Analyzer access check failed:",
+          err
+        );
+
+        if (mounted) {
+          setSubscribed(false);
+          setFreeAttemptUsed(
+            hasUsedFreeAttempt("resumeAnalyzer")
+          );
+        }
+      } finally {
+        if (mounted) {
+          setCheckingAccess(false);
+        }
+      }
+    };
+
+    void checkAccess();
+
+    return () => {
+      mounted = false;
+    };
+  }, [navigate]);
 
   // =========================================================
   // HANDLE RESUME UPLOAD
@@ -73,18 +149,46 @@ function ResumeAnalyzer() {
     }
 
     // =======================================================
-    // SUBSCRIPTION CHECK
+    // LOGIN CHECK
     // =======================================================
 
-    if (!canUseFeature("resumeAnalyzer")) {
+    const email = getCurrentUserEmail();
+
+    if (!email) {
       e.target.value = "";
 
-      navigate("/subscription");
+      navigate("/login", {
+        state: {
+          redirectTo: "/resume-analyzer",
+        },
+      });
 
       return;
     }
 
-    // Reset state
+    // =======================================================
+    // SUBSCRIPTION / FREE USE CHECK
+    // =======================================================
+
+    const allowed =
+      await canUseFeature("resumeAnalyzer");
+
+    if (!allowed) {
+      e.target.value = "";
+
+      navigate("/subscription", {
+        state: {
+          from: "/resume-analyzer",
+        },
+      });
+
+      return;
+    }
+
+    // =======================================================
+    // RESET STATE
+    // =======================================================
+
     setError("");
     setAnalysis(null);
     setFileName("");
@@ -99,8 +203,12 @@ function ResumeAnalyzer() {
       file.name.toLowerCase().endsWith(".pdf");
 
     if (!isPdf) {
-      setError("Please upload a PDF file only.");
+      setError(
+        "Please upload a PDF file only."
+      );
+
       e.target.value = "";
+
       return;
     }
 
@@ -108,11 +216,16 @@ function ResumeAnalyzer() {
     // FILE SIZE
     // =======================================================
 
-    const maxFileSize = 10 * 1024 * 1024;
+    const maxFileSize =
+      10 * 1024 * 1024;
 
     if (file.size > maxFileSize) {
-      setError("File size must be less than 10 MB.");
+      setError(
+        "File size must be less than 10 MB."
+      );
+
       e.target.value = "";
+
       return;
     }
 
@@ -135,7 +248,7 @@ function ResumeAnalyzer() {
       setError("");
 
       const response = await fetch(
-        "http://localhost:5000/api/resume/upload",
+        `${API_URL}/api/resume/upload`,
         {
           method: "POST",
           body: formData,
@@ -154,7 +267,8 @@ function ResumeAnalyzer() {
 
       if (!response.ok || !data.success) {
         throw new Error(
-          data.message || "Resume processing failed."
+          data.message ||
+            "Resume processing failed."
         );
       }
 
@@ -165,15 +279,24 @@ function ResumeAnalyzer() {
       setUploaded(true);
 
       /*
-       * IMPORTANT:
-       * Only mark the free attempt as used after
-       * successful backend upload.
+       * Only consume the free attempt after
+       * a successful backend upload.
        *
-       * Subscribers don't need usage tracking.
+       * Active subscribers do NOT consume
+       * the free attempt.
        */
 
-      if (!isSubscribed()) {
-        markFeatureUsed("resumeAnalyzer");
+      const currentlySubscribed =
+        await isSubscribed();
+
+      if (!currentlySubscribed) {
+        markFeatureUsed(
+          "resumeAnalyzer"
+        );
+
+        setFreeAttemptUsed(true);
+      } else {
+        setSubscribed(true);
       }
 
       // =======================================================
@@ -212,38 +335,50 @@ function ResumeAnalyzer() {
       // CLEAN ANALYSIS
       // =======================================================
 
-      const receivedAnalysis = data.analysis;
+      const receivedAnalysis =
+        data.analysis;
 
-      const cleanedAnalysis: ResumeAnalysis = {
-        atsScore:
-          typeof receivedAnalysis.atsScore === "number"
-            ? receivedAnalysis.atsScore
-            : 0,
+      const cleanedAnalysis: ResumeAnalysis =
+        {
+          atsScore:
+            typeof receivedAnalysis.atsScore ===
+            "number"
+              ? receivedAnalysis.atsScore
+              : 0,
 
-        wordCount:
-          typeof receivedAnalysis.wordCount === "number"
-            ? receivedAnalysis.wordCount
-            : 0,
+          wordCount:
+            typeof receivedAnalysis.wordCount ===
+            "number"
+              ? receivedAnalysis.wordCount
+              : 0,
 
-        pages:
-          typeof receivedAnalysis.pages === "number"
-            ? receivedAnalysis.pages
-            : 0,
+          pages:
+            typeof receivedAnalysis.pages ===
+            "number"
+              ? receivedAnalysis.pages
+              : 0,
 
-        skills: Array.isArray(receivedAnalysis.skills)
-          ? receivedAnalysis.skills
-          : [],
+          skills:
+            Array.isArray(
+              receivedAnalysis.skills
+            )
+              ? receivedAnalysis.skills
+              : [],
 
-        keywords: Array.isArray(receivedAnalysis.keywords)
-          ? receivedAnalysis.keywords
-          : [],
+          keywords:
+            Array.isArray(
+              receivedAnalysis.keywords
+            )
+              ? receivedAnalysis.keywords
+              : [],
 
-        suggestions: Array.isArray(
-          receivedAnalysis.suggestions
-        )
-          ? receivedAnalysis.suggestions
-          : [],
-      };
+          suggestions:
+            Array.isArray(
+              receivedAnalysis.suggestions
+            )
+              ? receivedAnalysis.suggestions
+              : [],
+        };
 
       setAnalysis(cleanedAnalysis);
 
@@ -254,12 +389,18 @@ function ResumeAnalyzer() {
       const resumeData: ResumeData = {
         uploaded: true,
         fileName: file.name,
-        score: cleanedAnalysis.atsScore,
-        atsScore: cleanedAnalysis.atsScore,
-        skills: cleanedAnalysis.skills,
-        keywords: cleanedAnalysis.keywords,
-        wordCount: cleanedAnalysis.wordCount,
-        pages: cleanedAnalysis.pages,
+        score:
+          cleanedAnalysis.atsScore,
+        atsScore:
+          cleanedAnalysis.atsScore,
+        skills:
+          cleanedAnalysis.skills,
+        keywords:
+          cleanedAnalysis.keywords,
+        wordCount:
+          cleanedAnalysis.wordCount,
+        pages:
+          cleanedAnalysis.pages,
       };
 
       localStorage.setItem(
@@ -283,10 +424,12 @@ function ResumeAnalyzer() {
 
       if (
         err instanceof TypeError &&
-        err.message.toLowerCase().includes("fetch")
+        err.message
+          .toLowerCase()
+          .includes("fetch")
       ) {
         setError(
-          "Unable to connect to the CareerPilot backend. Please make sure the backend is running on http://localhost:5000."
+          `Unable to connect to the CareerPilot backend. Please make sure the backend is available at ${API_URL}.`
         );
       } else if (err instanceof Error) {
         setError(err.message);
@@ -303,18 +446,36 @@ function ResumeAnalyzer() {
   };
 
   // =========================================================
+  // ACCESS CHECK SCREEN
+  // =========================================================
+
+  if (checkingAccess) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
+        <div className="text-center">
+          <FaRobot className="mx-auto text-4xl text-blue-400" />
+
+          <p className="mt-4 text-slate-400">
+            Checking Resume Analyzer access...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================
   // UI
   // =========================================================
 
   return (
     <div className="min-h-screen w-full bg-slate-950 text-white">
-
       <div className="relative min-h-screen overflow-hidden">
 
         {/* Background */}
 
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute left-1/4 top-0 h-96 w-96 rounded-full bg-blue-600/10 blur-3xl" />
+
           <div className="absolute right-1/4 top-40 h-96 w-96 rounded-full bg-purple-600/10 blur-3xl" />
         </div>
 
@@ -337,9 +498,11 @@ function ResumeAnalyzer() {
             </h1>
 
             <p className="mx-auto mt-6 max-w-3xl text-base leading-8 text-slate-400 sm:text-lg">
-              Upload your resume and receive an ATS compatibility
-              analysis, keyword detection, skills analysis and
-              actionable improvement suggestions.
+              Upload your resume and receive
+              an ATS compatibility analysis,
+              keyword detection, skills analysis
+              and actionable improvement
+              suggestions.
             </p>
 
           </div>
@@ -363,17 +526,33 @@ function ResumeAnalyzer() {
               </h2>
 
               <p className="mt-3 text-sm text-slate-400 sm:text-base">
-                PDF format only • Maximum file size 10 MB
+                PDF format only • Maximum
+                file size 10 MB
               </p>
 
-              {/* Free-use notice */}
+              {/* Subscription status */}
 
-              {!isSubscribed() && (
+              {subscribed ? (
+                <div className="mx-auto mt-5 flex max-w-md items-center justify-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">
+                  <FaCrown />
+                  Premium access active — unlimited
+                  Resume Analyzer uses.
+                </div>
+              ) : freeAttemptUsed ? (
                 <div className="mx-auto mt-5 flex max-w-md items-center justify-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
                   <FaCrown />
-                  You have 1 free Resume Analyzer attempt.
+                  Your free Resume Analyzer
+                  attempt has been used.
+                </div>
+              ) : (
+                <div className="mx-auto mt-5 flex max-w-md items-center justify-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
+                  <FaCrown />
+                  You have 1 free Resume
+                  Analyzer attempt.
                 </div>
               )}
+
+              {/* File input */}
 
               <input
                 ref={fileInputRef}
@@ -382,6 +561,8 @@ function ResumeAnalyzer() {
                 onChange={handleUpload}
                 className="hidden"
               />
+
+              {/* Upload button */}
 
               <button
                 type="button"
@@ -418,32 +599,39 @@ function ResumeAnalyzer() {
 
               {/* Success */}
 
-              {uploaded && !loading && !error && (
-                <div className="mt-8 flex items-start gap-3 rounded-2xl border border-green-500/20 bg-green-500/10 p-5 text-left">
+              {uploaded &&
+                !loading &&
+                !error && (
+                  <div className="mt-8 flex items-start gap-3 rounded-2xl border border-green-500/20 bg-green-500/10 p-5 text-left">
 
-                  <FaCheckCircle className="mt-1 flex-shrink-0 text-green-400" />
+                    <FaCheckCircle className="mt-1 flex-shrink-0 text-green-400" />
 
-                  <div>
-                    <p className="font-semibold text-green-300">
-                      Resume uploaded successfully
-                    </p>
+                    <div>
+                      <p className="font-semibold text-green-300">
+                        Resume uploaded
+                        successfully
+                      </p>
 
-                    <p className="mt-1 text-sm text-slate-400">
-                      Your resume has been uploaded and analyzed successfully.
-                    </p>
+                      <p className="mt-1 text-sm text-slate-400">
+                        Your resume has been
+                        uploaded and analyzed
+                        successfully.
+                      </p>
+                    </div>
+
                   </div>
-
-                </div>
-              )}
+                )}
 
               {/* Error */}
 
               {error && (
-                <div className={`mt-8 flex items-start gap-3 rounded-2xl border p-5 text-left ${
-                  uploaded
-                    ? "border-yellow-500/20 bg-yellow-500/10"
-                    : "border-red-500/20 bg-red-500/10"
-                }`}>
+                <div
+                  className={`mt-8 flex items-start gap-3 rounded-2xl border p-5 text-left ${
+                    uploaded
+                      ? "border-yellow-500/20 bg-yellow-500/10"
+                      : "border-red-500/20 bg-red-500/10"
+                  }`}
+                >
 
                   <FaExclamationTriangle
                     className={`mt-1 flex-shrink-0 ${
@@ -455,11 +643,13 @@ function ResumeAnalyzer() {
 
                   <div>
 
-                    <p className={`font-semibold ${
-                      uploaded
-                        ? "text-yellow-300"
-                        : "text-red-300"
-                    }`}>
+                    <p
+                      className={`font-semibold ${
+                        uploaded
+                          ? "text-yellow-300"
+                          : "text-red-300"
+                      }`}
+                    >
                       {uploaded
                         ? "Analysis Status"
                         : "Upload Failed"}
@@ -475,7 +665,6 @@ function ResumeAnalyzer() {
               )}
 
             </div>
-
           </div>
 
           {/* Analysis */}
@@ -571,7 +760,8 @@ function ResumeAnalyzer() {
 
                   <div className="mt-5 flex flex-wrap gap-2">
 
-                    {analysis.skills.length > 0 ? (
+                    {analysis.skills.length >
+                    0 ? (
                       analysis.skills.map(
                         (skill, index) => (
                           <span
@@ -584,12 +774,12 @@ function ResumeAnalyzer() {
                       )
                     ) : (
                       <p className="text-slate-400">
-                        No technical skills detected.
+                        No technical skills
+                        detected.
                       </p>
                     )}
 
                   </div>
-
                 </div>
 
                 <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 sm:p-8">
@@ -600,9 +790,13 @@ function ResumeAnalyzer() {
 
                   <div className="mt-5 flex flex-wrap gap-2">
 
-                    {analysis.keywords.length > 0 ? (
+                    {analysis.keywords.length >
+                    0 ? (
                       analysis.keywords.map(
-                        (keyword, index) => (
+                        (
+                          keyword,
+                          index
+                        ) => (
                           <span
                             key={`${keyword}-${index}`}
                             className="rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-sm text-purple-300"
@@ -613,12 +807,12 @@ function ResumeAnalyzer() {
                       )
                     ) : (
                       <p className="text-slate-400">
-                        No keywords detected yet.
+                        No keywords detected
+                        yet.
                       </p>
                     )}
 
                   </div>
-
                 </div>
 
               </div>
@@ -628,14 +822,19 @@ function ResumeAnalyzer() {
               <div className="mt-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-6 sm:p-8">
 
                 <h3 className="text-xl font-bold sm:text-2xl">
-                  AI-Ready Improvement Suggestions
+                  AI-Ready Improvement
+                  Suggestions
                 </h3>
 
                 <div className="mt-5 space-y-4">
 
-                  {analysis.suggestions.length > 0 ? (
+                  {analysis.suggestions.length >
+                  0 ? (
                     analysis.suggestions.map(
-                      (suggestion, index) => (
+                      (
+                        suggestion,
+                        index
+                      ) => (
                         <div
                           key={index}
                           className="flex gap-3 rounded-xl border border-slate-800 bg-slate-950/50 p-4"
@@ -652,21 +851,20 @@ function ResumeAnalyzer() {
                     )
                   ) : (
                     <p className="text-slate-400">
-                      No improvement suggestions available yet.
+                      No improvement
+                      suggestions available
+                      yet.
                     </p>
                   )}
 
                 </div>
-
               </div>
 
             </div>
           )}
 
         </section>
-
       </div>
-
     </div>
   );
 }
