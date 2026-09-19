@@ -140,8 +140,6 @@ const linkedinLogin = async (
       {
         ...cookieOptions,
 
-        signed: true,
-
         maxAge:
           10 * 60 * 1000,
       }
@@ -230,7 +228,7 @@ const linkedinCallback = async (
     // ----------------------------------------
 
     const savedState =
-      req.signedCookies
+      req.cookies
         ?.linkedin_oauth_state;
 
     // ----------------------------------------
@@ -339,9 +337,6 @@ const linkedinCallback = async (
       ),
       {
         ...cookieOptions,
-
-        // Signed cookie
-        signed: true,
 
         maxAge:
           30 * 60 * 1000,
