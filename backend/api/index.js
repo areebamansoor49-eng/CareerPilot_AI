@@ -1,30 +1,15 @@
 const app = require("../server");
-const connectDB = require("../config/db");
 
-let dbPromise = null;
-
-module.exports = async (req, res) => {
+module.exports = (req, res) => {
   try {
-    if (!dbPromise) {
-      dbPromise = connectDB().catch((error) => {
-        dbPromise = null;
-        throw error;
-      });
-    }
-
-    await dbPromise;
-
     return app(req, res);
   } catch (error) {
-    console.error(
-      "Vercel backend startup error:",
-      error
-    );
+    console.error("Vercel runtime error:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Backend database connection failed.",
+      message: "Backend runtime error.",
+      error: error.message,
     });
   }
 };
