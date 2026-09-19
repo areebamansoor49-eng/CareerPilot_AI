@@ -14,6 +14,8 @@ const API_URL =
   import.meta.env.VITE_API_URL ||
   "http://localhost:5000";
 
+type Plan = "monthly" | "yearly";
+
 function Subscription() {
   const navigate = useNavigate();
 
@@ -22,6 +24,9 @@ function Subscription() {
 
   const [error, setError] =
     useState("");
+
+  const [selectedPlan, setSelectedPlan] =
+    useState<Plan>("monthly");
 
   const handleSubscribe = async () => {
     try {
@@ -83,7 +88,7 @@ function Subscription() {
           body: JSON.stringify({
             email: userEmail,
             userId,
-            plan: "monthly",
+            plan: selectedPlan,
           }),
         }
       );
@@ -157,7 +162,108 @@ function Subscription() {
 
         </div>
 
-        <div className="mx-auto mt-12 max-w-lg">
+        <div className="mx-auto mt-10 max-w-2xl">
+
+          {/* Pricing */}
+          <div className="grid gap-5 sm:grid-cols-2">
+
+            <button
+              type="button"
+              onClick={() =>
+                setSelectedPlan("monthly")
+              }
+              className={`rounded-2xl border p-6 text-left transition ${
+                selectedPlan === "monthly"
+                  ? "border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-950/20"
+                  : "border-slate-800 bg-slate-900 hover:border-slate-700"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+
+                <div>
+                  <p className="text-sm font-semibold text-slate-400">
+                    Monthly
+                  </p>
+
+                  <div className="mt-2 flex items-end gap-1">
+                    <span className="text-4xl font-extrabold text-white">
+                      $5
+                    </span>
+
+                    <span className="mb-1 text-sm text-slate-400">
+                      / month
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  className={`h-5 w-5 rounded-full border-2 ${
+                    selectedPlan === "monthly"
+                      ? "border-blue-500 bg-blue-500"
+                      : "border-slate-600"
+                  }`}
+                />
+              </div>
+
+              <p className="mt-3 text-sm text-slate-400">
+                Flexible monthly access to all
+                premium career tools.
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setSelectedPlan("yearly")
+              }
+              className={`relative rounded-2xl border p-6 text-left transition ${
+                selectedPlan === "yearly"
+                  ? "border-violet-500 bg-violet-500/10 shadow-lg shadow-violet-950/20"
+                  : "border-slate-800 bg-slate-900 hover:border-slate-700"
+              }`}
+            >
+              <div className="absolute -top-3 right-5 rounded-full bg-violet-600 px-3 py-1 text-xs font-bold text-white">
+                Best Value
+              </div>
+
+              <div className="flex items-center justify-between">
+
+                <div>
+                  <p className="text-sm font-semibold text-slate-400">
+                    Yearly
+                  </p>
+
+                  <div className="mt-2 flex items-end gap-1">
+                    <span className="text-4xl font-extrabold text-white">
+                      $50
+                    </span>
+
+                    <span className="mb-1 text-sm text-slate-400">
+                      / year
+                    </span>
+                  </div>
+                </div>
+
+                <div
+                  className={`h-5 w-5 rounded-full border-2 ${
+                    selectedPlan === "yearly"
+                      ? "border-violet-500 bg-violet-500"
+                      : "border-slate-600"
+                  }`}
+                />
+              </div>
+
+              <p className="mt-3 text-sm text-slate-400">
+                Full-year premium access with
+                one simple annual payment.
+              </p>
+            </button>
+
+          </div>
+
+        </div>
+
+        <div className="mx-auto mt-8 max-w-lg">
 
           <div className="relative overflow-hidden rounded-[2rem] border border-purple-500/30 bg-slate-900 p-8 shadow-2xl shadow-purple-950/30 sm:p-10">
 
@@ -222,11 +328,39 @@ function Subscription() {
 
                 {loading
                   ? "Opening Checkout..."
-                  : "Subscribe & Unlock"}
+                  : `Subscribe ${
+                      selectedPlan === "monthly"
+                        ? "$5/month"
+                        : "$50/year"
+                    }`}
               </button>
 
               <p className="mt-4 text-center text-xs text-slate-500">
                 Secure subscription • Cancel anytime
+              </p>
+
+              <p className="mt-3 text-center text-xs text-slate-500">
+                By subscribing, you agree to our{" "}
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/terms")
+                  }
+                  className="text-blue-400 underline hover:text-blue-300"
+                >
+                  Terms of Service
+                </button>{" "}
+                and{" "}
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/refund-policy")
+                  }
+                  className="text-blue-400 underline hover:text-blue-300"
+                >
+                  Refund Policy
+                </button>
+                .
               </p>
 
             </div>
