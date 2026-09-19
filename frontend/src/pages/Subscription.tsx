@@ -6,6 +6,9 @@ import {
 } from "react-icons/fa";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  getCurrentUserEmail,
+} from "../utils/subscription";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -14,20 +17,47 @@ const API_URL =
 function Subscription() {
   const navigate = useNavigate();
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
 
   const handleSubscribe = async () => {
     try {
       setLoading(true);
       setError("");
 
+      /*
+       * Get the currently logged-in user's
+       * email from the same auth source used
+       * throughout CareerPilot.
+       */
       const userEmail =
-        localStorage.getItem("userEmail") ||
-        localStorage.getItem("email");
+        getCurrentUserEmail();
 
-      const userId =
-        localStorage.getItem("userId") || "";
+      let userId = "";
+
+      try {
+        const rawUser =
+          localStorage.getItem("user");
+
+        if (rawUser) {
+          const user =
+            JSON.parse(rawUser);
+
+          userId =
+            user?.id ||
+            user?.userId ||
+            user?.sub ||
+            "";
+        }
+      } catch (parseError) {
+        console.warn(
+          "Unable to read user ID:",
+          parseError
+        );
+      }
 
       if (!userEmail) {
         setError(
@@ -44,7 +74,8 @@ function Subscription() {
           method: "POST",
 
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
 
           credentials: "include",
@@ -57,9 +88,13 @@ function Subscription() {
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
-      if (!response.ok || !data.success) {
+      if (
+        !response.ok ||
+        !data.success
+      ) {
         throw new Error(
           data.message ||
             "Unable to create checkout."
