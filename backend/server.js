@@ -1,27 +1,27 @@
 const express = require("express");
 const cors = require("cors");
-const reviewRoutes = require("./routes/reviewRoutes");
-
 const path = require("path");
 const cookieParser = require("cookie-parser");
 const crypto = require("crypto");
 
 require("dotenv").config();
+
 const connectDB = require("./config/db");
+
 const {
   updateSubscriptionFromWebhook,
 } = require("./controllers/subscriptionController");
 
+const reviewRoutes = require("./routes/reviewRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
-
 const resumeRoutes = require("./routes/resumeRoutes");
 const jobRoutes = require("./routes/jobRoutes");
 const linkedinRoutes = require("./routes/linkedinRoutes");
 const careerRoadmapRoutes = require("./routes/careerRoadmapRoutes");
 
 const app = express();
-connectDB();
+
 // ========================================================
 // CONFIGURATION
 // ========================================================
@@ -38,7 +38,9 @@ const ALLOWED_ORIGINS = [
   FRONTEND_URL,
 ];
 
-const uniqueOrigins = [...new Set(ALLOWED_ORIGINS)];
+const uniqueOrigins = [
+  ...new Set(ALLOWED_ORIGINS.filter(Boolean)),
+];
 
 // ========================================================
 // CORS
@@ -205,6 +207,28 @@ app.post(
       }
 
       // ====================================================
+      // PREVENT OLD / REPLAYED WEBHOOKS
+      // ====================================================
+
+      const timestampAge =
+        Math.abs(
+          Date.now() / 1000 -
+            timestampNumber
+        );
+
+      if (timestampAge > 300) {
+        console.error(
+          "Paddle webhook rejected: timestamp is too old."
+        );
+
+        return res.status(401).json({
+          success: false,
+          message:
+            "Expired Paddle webhook signature.",
+        });
+      }
+
+      // ====================================================
       // CREATE SIGNED PAYLOAD
       // ====================================================
 
@@ -280,8 +304,23 @@ app.post(
       // PARSE EVENT
       // ====================================================
 
-      const eventData =
-        JSON.parse(rawBody);
+      let eventData;
+
+      try {
+        eventData =
+          JSON.parse(rawBody);
+      } catch (parseError) {
+        console.error(
+          "Paddle webhook JSON parse error:",
+          parseError.message
+        );
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid Paddle webhook JSON.",
+        });
+      }
 
       const eventType =
         eventData.event_type;
@@ -301,15 +340,17 @@ app.post(
       );
 
       console.log(
-        `Event: ${eventType}`
+        `Event: ${eventType || "UNKNOWN"}`
       );
 
       console.log(
-        `Event ID: ${eventId}`
+        `Event ID: ${eventId || "N/A"}`
       );
 
       console.log(
-        `Notification ID: ${notificationId}`
+        `Notification ID: ${
+          notificationId || "N/A"
+        }`
       );
 
       console.log(
@@ -341,7 +382,7 @@ app.post(
       }
 
       // ====================================================
-      // LOG EVENTS
+      // EVENT LOGGING
       // ====================================================
 
       switch (eventType) {
@@ -431,13 +472,11 @@ app.post(
 
         default:
           console.log(
-            `Paddle event received: ${eventType}`
+            `Paddle event received: ${
+              eventType || "UNKNOWN"
+            }`
           );
       }
-
-      // ====================================================
-      // SUCCESS
-      // ====================================================
 
       return res.status(200).json({
         success: true,
@@ -491,7 +530,7 @@ app.use(
 );
 
 // ========================================================
-// RESUME ROUTES
+// ROUTES
 // ========================================================
 
 app.use(
@@ -499,53 +538,30 @@ app.use(
   resumeRoutes
 );
 
-// ========================================================
-// JOB ROUTES
-// ========================================================
-
 app.use(
   "/api/jobs",
   jobRoutes
 );
-
-// ========================================================
-// LINKEDIN ROUTES
-// ========================================================
 
 app.use(
   "/api/linkedin",
   linkedinRoutes
 );
 
-// ========================================================
-// CAREER ROADMAP ROUTES
-// ========================================================
-
 app.use(
   "/api/career-roadmap",
   careerRoadmapRoutes
 );
-
-// ========================================================
-// SUBSCRIPTION ROUTES
-// ========================================================
 
 app.use(
   "/api/subscription",
   subscriptionRoutes
 );
 
-// ========================================================
-// PAYMENT ROUTES
-// ========================================================
-
 app.use(
   "/api/payment",
   paymentRoutes
 );
-// ========================================================
-// REVIEW ROUTES
-// ========================================================
 
 app.use(
   "/api/reviews",
@@ -563,9 +579,11 @@ app.get(
       success: true,
 
       message:
-        "CareerPilot AI Backend is Running 🚀",
+        "CareerPilot AI Backend is Running",
 
-      port: PORT,
+      environment:
+        process.env.NODE_ENV ||
+        "development",
 
       linkedinOAuth: Boolean(
         process.env.LINKEDIN_CLIENT_ID &&
@@ -655,65 +673,84 @@ app.use(
 );
 
 // ========================================================
-// START SERVER
+// LOCAL SERVER
 // ========================================================
 
-app.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
-    console.log(
-      "================================="
-    );
+if (require.main === module) {
+  connectDB()
+    .then(() => {
+      app.listen(
+        PORT,
+        "0.0.0.0",
+        () => {
+          console.log(
+            "================================="
+          );
 
-    console.log(
-      "CareerPilot AI Backend"
-    );
+          console.log(
+            "CareerPilot AI Backend"
+          );
 
-    console.log(
-      `Server listening on port ${PORT}`
-    );
+          console.log(
+            `Server listening on port ${PORT}`
+          );
 
-    console.log(
-      `Frontend URL: ${FRONTEND_URL}`
-    );
+          console.log(
+            `Frontend URL: ${FRONTEND_URL}`
+          );
 
-    console.log(
-      `LinkedIn OAuth: ${
-        process.env.LINKEDIN_CLIENT_ID &&
-        process.env.LINKEDIN_CLIENT_SECRET &&
-        process.env.LINKEDIN_REDIRECT_URI
-          ? "ENABLED"
-          : "NOT CONFIGURED"
-      }`
-    );
+          console.log(
+            `LinkedIn OAuth: ${
+              process.env.LINKEDIN_CLIENT_ID &&
+              process.env.LINKEDIN_CLIENT_SECRET &&
+              process.env.LINKEDIN_REDIRECT_URI
+                ? "ENABLED"
+                : "NOT CONFIGURED"
+            }`
+          );
 
-    console.log(
-      `Career Roadmap AI: ${
-        process.env.OPENAI_API_KEY
-          ? "ENABLED"
-          : "NOT CONFIGURED"
-      }`
-    );
+          console.log(
+            `Career Roadmap AI: ${
+              process.env.OPENAI_API_KEY
+                ? "ENABLED"
+                : "NOT CONFIGURED"
+            }`
+          );
 
-    console.log(
-      `Paddle: ${
-        process.env.PADDLE_API_KEY &&
-        process.env.PADDLE_WEBHOOK_SECRET
-          ? "CONFIGURED"
-          : "NOT CONFIGURED"
-      }`
-    );
+          console.log(
+            `Paddle: ${
+              process.env.PADDLE_API_KEY &&
+              process.env.PADDLE_WEBHOOK_SECRET
+                ? "CONFIGURED"
+                : "NOT CONFIGURED"
+            }`
+          );
 
-    console.log(
-      `Environment: ${
-        process.env.NODE_ENV ||
-        "development"
-      }`
-    );
+          console.log(
+            `Environment: ${
+              process.env.NODE_ENV ||
+              "development"
+            }`
+          );
 
-    console.log(
-      "================================="
-    );
-  }
-);
+          console.log(
+            "================================="
+          );
+        }
+      );
+    })
+    .catch((error) => {
+      console.error(
+        "Failed to start backend:",
+        error.message
+      );
+
+      process.exit(1);
+    });
+}
+
+// ========================================================
+// EXPORT APP FOR VERCEL
+// ========================================================
+
+module.exports = app;
