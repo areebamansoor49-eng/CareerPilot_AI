@@ -1,7 +1,30 @@
-module.exports = (req, res) => {
-  return res.status(200).json({
-    success: true,
-    message: "Vercel backend function is working.",
-    timestamp: new Date().toISOString(),
-  });
+const app = require("../server");
+const connectDB = require("../config/db");
+
+let dbPromise = null;
+
+module.exports = async (req, res) => {
+  try {
+    if (!dbPromise) {
+      dbPromise = connectDB().catch((error) => {
+        dbPromise = null;
+        throw error;
+      });
+    }
+
+    await dbPromise;
+
+    return app(req, res);
+  } catch (error) {
+    console.error(
+      "Vercel backend startup error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Backend database connection failed.",
+      error: error.message,
+    });
+  }
 };
