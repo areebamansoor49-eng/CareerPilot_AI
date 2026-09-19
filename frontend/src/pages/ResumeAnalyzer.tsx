@@ -85,7 +85,11 @@ function ResumeAnalyzer() {
     const checkAccess = async () => {
       const email = getCurrentUserEmail();
 
-      // User must be logged in
+      /*
+       * Resume Analyzer requires the user
+       * to be logged in.
+       */
+
       if (!email) {
         navigate("/login", {
           state: {
@@ -98,16 +102,29 @@ function ResumeAnalyzer() {
       }
 
       try {
-        const subscription =
+        /*
+         * Get the real subscription state
+         * from the backend.
+         */
+        const activeSubscription =
           await isSubscribed();
 
         if (!mounted) {
           return;
         }
 
-        setSubscribed(subscription);
+        setSubscribed(
+          activeSubscription
+        );
+
+        /*
+         * Only Resume Analyzer has
+         * free-attempt tracking.
+         */
         setFreeAttemptUsed(
-          hasUsedFreeAttempt("resumeAnalyzer")
+          hasUsedFreeAttempt(
+            "resumeAnalyzer"
+          )
         );
       } catch (err) {
         console.error(
@@ -116,9 +133,17 @@ function ResumeAnalyzer() {
         );
 
         if (mounted) {
+          /*
+           * Fail closed for subscription state.
+           * The actual upload action performs
+           * another access check.
+           */
           setSubscribed(false);
+
           setFreeAttemptUsed(
-            hasUsedFreeAttempt("resumeAnalyzer")
+            hasUsedFreeAttempt(
+              "resumeAnalyzer"
+            )
           );
         }
       } finally {
@@ -142,7 +167,8 @@ function ResumeAnalyzer() {
   const handleUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const file = e.target.files?.[0];
+    const file =
+      e.target.files?.[0];
 
     if (!file) {
       return;
@@ -152,16 +178,55 @@ function ResumeAnalyzer() {
     // LOGIN CHECK
     // =======================================================
 
-    const email = getCurrentUserEmail();
+    const email =
+      getCurrentUserEmail();
 
     if (!email) {
       e.target.value = "";
 
       navigate("/login", {
         state: {
-          redirectTo: "/resume-analyzer",
+          redirectTo:
+            "/resume-analyzer",
         },
       });
+
+      return;
+    }
+
+    // =======================================================
+    // BASIC FILE VALIDATION
+    // =======================================================
+
+    const isPdf =
+      file.type ===
+        "application/pdf" ||
+      file.name
+        .toLowerCase()
+        .endsWith(".pdf");
+
+    if (!isPdf) {
+      setError(
+        "Please upload a PDF file only."
+      );
+
+      e.target.value = "";
+
+      return;
+    }
+
+    const maxFileSize =
+      10 * 1024 * 1024;
+
+    if (
+      file.size >
+      maxFileSize
+    ) {
+      setError(
+        "File size must be less than 10 MB."
+      );
+
+      e.target.value = "";
 
       return;
     }
@@ -170,15 +235,27 @@ function ResumeAnalyzer() {
     // SUBSCRIPTION / FREE USE CHECK
     // =======================================================
 
+    /*
+     * IMPORTANT:
+     *
+     * canUseFeature() is async.
+     *
+     * We MUST await it before deciding
+     * whether the user can use Resume Analyzer.
+     */
+
     const allowed =
-      await canUseFeature("resumeAnalyzer");
+      await canUseFeature(
+        "resumeAnalyzer"
+      );
 
     if (!allowed) {
       e.target.value = "";
 
       navigate("/subscription", {
         state: {
-          from: "/resume-analyzer",
+          from:
+            "/resume-analyzer",
         },
       });
 
@@ -194,50 +271,19 @@ function ResumeAnalyzer() {
     setFileName("");
     setUploaded(false);
 
-    // =======================================================
-    // PDF VALIDATION
-    // =======================================================
-
-    const isPdf =
-      file.type === "application/pdf" ||
-      file.name.toLowerCase().endsWith(".pdf");
-
-    if (!isPdf) {
-      setError(
-        "Please upload a PDF file only."
-      );
-
-      e.target.value = "";
-
-      return;
-    }
-
-    // =======================================================
-    // FILE SIZE
-    // =======================================================
-
-    const maxFileSize =
-      10 * 1024 * 1024;
-
-    if (file.size > maxFileSize) {
-      setError(
-        "File size must be less than 10 MB."
-      );
-
-      e.target.value = "";
-
-      return;
-    }
-
     setFileName(file.name);
 
     // =======================================================
     // FORM DATA
     // =======================================================
 
-    const formData = new FormData();
+    const formData =
+      new FormData();
 
-    formData.append("resume", file);
+    formData.append(
+      "resume",
+      file
+    );
 
     // =======================================================
     // UPLOAD
@@ -247,81 +293,99 @@ function ResumeAnalyzer() {
       setLoading(true);
       setError("");
 
-      const response = await fetch(
-        `${API_URL}/api/resume/upload`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const response =
+        await fetch(
+          `${API_URL}/api/resume/upload`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
 
       let data: UploadResponse;
 
       try {
-        data = await response.json();
+        data =
+          await response.json();
       } catch {
         throw new Error(
           "Backend returned an invalid response. Please check the backend server."
         );
       }
 
-      if (!response.ok || !data.success) {
+      if (
+        !response.ok ||
+        !data.success
+      ) {
         throw new Error(
           data.message ||
             "Resume processing failed."
         );
       }
 
-      // =======================================================
+      // =====================================================
       // SUCCESS
-      // =======================================================
+      // =====================================================
 
       setUploaded(true);
 
       /*
-       * Only consume the free attempt after
-       * a successful backend upload.
+       * Re-check the REAL subscription status
+       * after successful processing.
        *
-       * Active subscribers do NOT consume
-       * the free attempt.
+       * This prevents subscribed users from
+       * consuming their free attempt.
        */
-
       const currentlySubscribed =
         await isSubscribed();
 
-      if (!currentlySubscribed) {
+      if (
+        currentlySubscribed
+      ) {
+        setSubscribed(true);
+      } else {
+        /*
+         * Only consume the one free attempt
+         * after successful backend processing.
+         */
         markFeatureUsed(
           "resumeAnalyzer"
         );
 
-        setFreeAttemptUsed(true);
-      } else {
-        setSubscribed(true);
+        setFreeAttemptUsed(
+          true
+        );
       }
 
-      // =======================================================
+      // =====================================================
       // NO ANALYSIS
-      // =======================================================
+      // =====================================================
 
       if (!data.analysis) {
-        const resumeData: ResumeData = {
-          uploaded: true,
-          fileName: file.name,
-          score: null,
-          atsScore: null,
-          skills: [],
-          keywords: [],
-          wordCount: 0,
-          pages: 0,
-        };
+        const resumeData: ResumeData =
+          {
+            uploaded: true,
+            fileName:
+              file.name,
+            score: null,
+            atsScore: null,
+            skills: [],
+            keywords: [],
+            wordCount: 0,
+            pages: 0,
+          };
 
         localStorage.setItem(
           "resumeData",
-          JSON.stringify(resumeData)
+          JSON.stringify(
+            resumeData
+          )
         );
 
         window.dispatchEvent(
-          new Event("resumeDataUpdated")
+          new Event(
+            "resumeDataUpdated"
+          )
         );
 
         setError(
@@ -331,9 +395,9 @@ function ResumeAnalyzer() {
         return;
       }
 
-      // =======================================================
+      // =====================================================
       // CLEAN ANALYSIS
-      // =======================================================
+      // =====================================================
 
       const receivedAnalysis =
         data.analysis;
@@ -380,36 +444,44 @@ function ResumeAnalyzer() {
               : [],
         };
 
-      setAnalysis(cleanedAnalysis);
+      setAnalysis(
+        cleanedAnalysis
+      );
 
-      // =======================================================
+      // =====================================================
       // SAVE RESUME DATA
-      // =======================================================
+      // =====================================================
 
-      const resumeData: ResumeData = {
-        uploaded: true,
-        fileName: file.name,
-        score:
-          cleanedAnalysis.atsScore,
-        atsScore:
-          cleanedAnalysis.atsScore,
-        skills:
-          cleanedAnalysis.skills,
-        keywords:
-          cleanedAnalysis.keywords,
-        wordCount:
-          cleanedAnalysis.wordCount,
-        pages:
-          cleanedAnalysis.pages,
-      };
+      const resumeData: ResumeData =
+        {
+          uploaded: true,
+          fileName:
+            file.name,
+          score:
+            cleanedAnalysis.atsScore,
+          atsScore:
+            cleanedAnalysis.atsScore,
+          skills:
+            cleanedAnalysis.skills,
+          keywords:
+            cleanedAnalysis.keywords,
+          wordCount:
+            cleanedAnalysis.wordCount,
+          pages:
+            cleanedAnalysis.pages,
+        };
 
       localStorage.setItem(
         "resumeData",
-        JSON.stringify(resumeData)
+        JSON.stringify(
+          resumeData
+        )
       );
 
       window.dispatchEvent(
-        new Event("resumeDataUpdated")
+        new Event(
+          "resumeDataUpdated"
+        )
       );
 
       setError("");
@@ -423,7 +495,8 @@ function ResumeAnalyzer() {
       setAnalysis(null);
 
       if (
-        err instanceof TypeError &&
+        err instanceof
+          TypeError &&
         err.message
           .toLowerCase()
           .includes("fetch")
@@ -431,8 +504,12 @@ function ResumeAnalyzer() {
         setError(
           `Unable to connect to the CareerPilot backend. Please make sure the backend is available at ${API_URL}.`
         );
-      } else if (err instanceof Error) {
-        setError(err.message);
+      } else if (
+        err instanceof Error
+      ) {
+        setError(
+          err.message
+        );
       } else {
         setError(
           "Resume processing failed. Please try again."
@@ -535,14 +612,16 @@ function ResumeAnalyzer() {
               {subscribed ? (
                 <div className="mx-auto mt-5 flex max-w-md items-center justify-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">
                   <FaCrown />
-                  Premium access active — unlimited
-                  Resume Analyzer uses.
+                  Premium access active —
+                  unlimited Resume
+                  Analyzer uses.
                 </div>
               ) : freeAttemptUsed ? (
                 <div className="mx-auto mt-5 flex max-w-md items-center justify-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
                   <FaCrown />
-                  Your free Resume Analyzer
-                  attempt has been used.
+                  Your free Resume
+                  Analyzer attempt has
+                  been used.
                 </div>
               ) : (
                 <div className="mx-auto mt-5 flex max-w-md items-center justify-center gap-2 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
@@ -558,7 +637,9 @@ function ResumeAnalyzer() {
                 ref={fileInputRef}
                 type="file"
                 accept="application/pdf,.pdf"
-                onChange={handleUpload}
+                onChange={
+                  handleUpload
+                }
                 className="hidden"
               />
 
@@ -763,7 +844,10 @@ function ResumeAnalyzer() {
                     {analysis.skills.length >
                     0 ? (
                       analysis.skills.map(
-                        (skill, index) => (
+                        (
+                          skill,
+                          index
+                        ) => (
                           <span
                             key={`${skill}-${index}`}
                             className="rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-sm text-blue-300"

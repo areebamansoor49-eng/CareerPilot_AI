@@ -12,7 +12,6 @@ import {
   FaDatabase,
   FaGlobe,
   FaHome,
-  FaLinkedin,
   FaRedo,
   FaRobot,
   FaShieldAlt,
@@ -20,15 +19,24 @@ import {
   FaUserTie,
   FaUsers,
 } from "react-icons/fa";
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useNavigate } from "react-router-dom";
+import { canUseFeature } from "../utils/subscription";
 
 /* =========================================================
    TYPES
 ========================================================= */
 
 type InterviewType = "technical" | "hr";
-type Difficulty = "Beginner" | "Intermediate" | "Advanced";
+
+type Difficulty =
+  | "Beginner"
+  | "Intermediate"
+  | "Advanced";
 
 interface Question {
   question: string;
@@ -45,72 +53,289 @@ interface Resource {
 }
 
 interface RoleData {
-  icon: React.ReactNode;
+  icon: ReactNode;
   description: string;
   questions: Question[];
   resources: Resource[];
 }
 
 /* =========================================================
-   COMMON TECHNICAL QUESTIONS
+   COMMON HR / BEHAVIORAL QUESTIONS
 ========================================================= */
 
 const commonHRQuestions: Question[] = [
   {
     question:
-      "Tell me about yourself and explain why you are interested in this role.",
+      "Tell me about yourself.",
     category: "Introduction",
     difficulty: "Beginner",
-    expectedPoints: ["background", "skills", "experience", "role", "career"],
+    expectedPoints: [
+      "background",
+      "education",
+      "skills",
+      "experience",
+      "career",
+    ],
   },
   {
     question:
-      "What is your greatest professional strength? Give a real example.",
-    category: "Strengths",
+      "Walk me through your background, experience and career journey.",
+    category: "Introduction",
     difficulty: "Beginner",
-    expectedPoints: ["strength", "example", "result"],
+    expectedPoints: [
+      "background",
+      "education",
+      "experience",
+      "skills",
+      "career",
+    ],
   },
   {
     question:
-      "What is one weakness you are currently working to improve?",
-    category: "Self Awareness",
+      "Why are you interested in this role?",
+    category: "Motivation",
     difficulty: "Beginner",
-    expectedPoints: ["weakness", "improve", "action"],
+    expectedPoints: [
+      "role",
+      "skills",
+      "interest",
+      "experience",
+      "career",
+    ],
   },
   {
     question:
-      "Describe a difficult problem you faced and explain how you solved it.",
-    category: "Problem Solving",
-    difficulty: "Intermediate",
-    expectedPoints: ["situation", "action", "solution", "result"],
-  },
-  {
-    question:
-      "Describe a time when you had to work with a difficult team member.",
-    category: "Teamwork",
-    difficulty: "Intermediate",
-    expectedPoints: ["situation", "communication", "team", "result"],
-  },
-  {
-    question:
-      "Why should we hire you instead of another candidate?",
+      "Why do you want to work for our company?",
     category: "Motivation",
     difficulty: "Intermediate",
-    expectedPoints: ["skills", "value", "experience", "role"],
+    expectedPoints: [
+      "company",
+      "values",
+      "role",
+      "skills",
+      "growth",
+    ],
+  },
+  {
+    question:
+      "What are your greatest strengths? Give a real example.",
+    category: "Strengths",
+    difficulty: "Beginner",
+    expectedPoints: [
+      "strength",
+      "example",
+      "skill",
+      "result",
+      "experience",
+    ],
+  },
+  {
+    question:
+      "What is your biggest weakness, and what are you doing to improve it?",
+    category: "Self Awareness",
+    difficulty: "Beginner",
+    expectedPoints: [
+      "weakness",
+      "improve",
+      "action",
+      "learning",
+      "progress",
+    ],
+  },
+  {
+    question:
+      "Why should we hire you?",
+    category: "Motivation",
+    difficulty: "Intermediate",
+    expectedPoints: [
+      "skills",
+      "value",
+      "experience",
+      "role",
+      "contribution",
+    ],
+  },
+  {
+    question:
+      "What makes you a good fit for this position?",
+    category: "Job Fit",
+    difficulty: "Intermediate",
+    expectedPoints: [
+      "skills",
+      "experience",
+      "requirements",
+      "role",
+      "fit",
+    ],
+  },
+  {
+    question:
+      "What is your greatest professional or academic achievement?",
+    category: "Achievements",
+    difficulty: "Intermediate",
+    expectedPoints: [
+      "achievement",
+      "challenge",
+      "action",
+      "result",
+      "learning",
+    ],
+  },
+  {
+    question:
+      "Tell me about a difficult problem or challenge you faced and how you solved it.",
+    category: "Problem Solving",
+    difficulty: "Intermediate",
+    expectedPoints: [
+      "situation",
+      "problem",
+      "action",
+      "solution",
+      "result",
+    ],
+  },
+  {
+    question:
+      "Tell me about a time you worked successfully as part of a team.",
+    category: "Teamwork",
+    difficulty: "Beginner",
+    expectedPoints: [
+      "team",
+      "communication",
+      "collaboration",
+      "contribution",
+      "result",
+    ],
+  },
+  {
+    question:
+      "Describe a time when you had a conflict or disagreement with a team member. How did you handle it?",
+    category: "Conflict Management",
+    difficulty: "Intermediate",
+    expectedPoints: [
+      "conflict",
+      "communication",
+      "listen",
+      "solution",
+      "result",
+    ],
+  },
+  {
+    question:
+      "How do you handle pressure and tight deadlines?",
+    category: "Work Style",
+    difficulty: "Intermediate",
+    expectedPoints: [
+      "pressure",
+      "deadline",
+      "priority",
+      "planning",
+      "focus",
+    ],
+  },
+  {
+    question:
+      "How do you prioritize when you have multiple tasks to complete?",
+    category: "Time Management",
+    difficulty: "Intermediate",
+    expectedPoints: [
+      "priority",
+      "deadline",
+      "planning",
+      "urgent",
+      "important",
+    ],
+  },
+  {
+    question:
+      "Tell me about a mistake or failure you experienced and what you learned from it.",
+    category: "Behavioral",
+    difficulty: "Intermediate",
+    expectedPoints: [
+      "failure",
+      "mistake",
+      "learning",
+      "improvement",
+      "action",
+    ],
+  },
+  {
+    question:
+      "How do you respond to constructive criticism or feedback?",
+    category: "Self Improvement",
+    difficulty: "Beginner",
+    expectedPoints: [
+      "feedback",
+      "listen",
+      "improve",
+      "learning",
+      "action",
+    ],
+  },
+  {
+    question:
+      "What motivates you at work or in your studies?",
+    category: "Motivation",
+    difficulty: "Beginner",
+    expectedPoints: [
+      "motivation",
+      "goals",
+      "learning",
+      "growth",
+      "achievement",
+    ],
   },
   {
     question:
       "Where do you see yourself professionally in the next three to five years?",
     category: "Career Goals",
     difficulty: "Beginner",
-    expectedPoints: ["career", "growth", "skills", "goals"],
+    expectedPoints: [
+      "career",
+      "growth",
+      "skills",
+      "goals",
+      "development",
+    ],
   },
   {
     question:
-      "Tell me about a failure or mistake and what you learned from it.",
-    category: "Behavioral",
+      "What type of work environment helps you perform at your best?",
+    category: "Work Style",
     difficulty: "Intermediate",
-    expectedPoints: ["failure", "mistake", "learning", "improvement"],
+    expectedPoints: [
+      "environment",
+      "team",
+      "communication",
+      "productivity",
+      "culture",
+    ],
+  },
+  {
+    question:
+      "What are your salary expectations for this position?",
+    category: "Compensation",
+    difficulty: "Intermediate",
+    expectedPoints: [
+      "salary",
+      "market",
+      "experience",
+      "role",
+      "expectations",
+    ],
+  },
+  {
+    question:
+      "Do you have any questions for us?",
+    category: "Closing",
+    difficulty: "Beginner",
+    expectedPoints: [
+      "role",
+      "team",
+      "company",
+      "growth",
+      "expectations",
+    ],
   },
 ];
 
@@ -129,21 +354,37 @@ const roleData: Record<string, RoleData> = {
           "What is the difference between an array and a linked list?",
         category: "Data Structures",
         difficulty: "Beginner",
-        expectedPoints: ["array", "linked", "memory", "access", "insertion"],
+        expectedPoints: [
+          "array",
+          "linked",
+          "memory",
+          "access",
+          "insertion",
+        ],
       },
       {
         question:
           "Explain time complexity and why Big O notation is important.",
         category: "Algorithms",
         difficulty: "Beginner",
-        expectedPoints: ["complexity", "big", "performance", "input"],
+        expectedPoints: [
+          "complexity",
+          "big",
+          "performance",
+          "input",
+        ],
       },
       {
         question:
           "What is the difference between a stack and a queue?",
         category: "Data Structures",
         difficulty: "Beginner",
-        expectedPoints: ["stack", "queue", "lifo", "fifo"],
+        expectedPoints: [
+          "stack",
+          "queue",
+          "lifo",
+          "fifo",
+        ],
       },
       {
         question:
@@ -162,42 +403,75 @@ const roleData: Record<string, RoleData> = {
           "What is database normalization and why is it useful?",
         category: "DBMS",
         difficulty: "Intermediate",
-        expectedPoints: ["normalization", "redundancy", "dependency", "database"],
+        expectedPoints: [
+          "normalization",
+          "redundancy",
+          "dependency",
+          "database",
+        ],
       },
       {
         question:
           "What is the difference between authentication and authorization?",
         category: "Security",
         difficulty: "Beginner",
-        expectedPoints: ["authentication", "authorization", "identity", "access"],
+        expectedPoints: [
+          "authentication",
+          "authorization",
+          "identity",
+          "access",
+        ],
       },
       {
         question:
           "What is a REST API and what are common HTTP methods?",
         category: "Web Development",
         difficulty: "Beginner",
-        expectedPoints: ["rest", "api", "get", "post", "put", "delete"],
+        expectedPoints: [
+          "rest",
+          "api",
+          "get",
+          "post",
+          "put",
+          "delete",
+        ],
       },
       {
         question:
           "Explain the difference between a process and a thread.",
         category: "Operating Systems",
         difficulty: "Intermediate",
-        expectedPoints: ["process", "thread", "memory", "execution"],
+        expectedPoints: [
+          "process",
+          "thread",
+          "memory",
+          "execution",
+        ],
       },
       {
         question:
           "What is a deadlock in an operating system?",
         category: "Operating Systems",
         difficulty: "Advanced",
-        expectedPoints: ["deadlock", "process", "resource", "waiting"],
+        expectedPoints: [
+          "deadlock",
+          "process",
+          "resource",
+          "waiting",
+        ],
       },
       {
         question:
           "Explain TCP versus UDP and give an example use case for each.",
         category: "Networking",
         difficulty: "Intermediate",
-        expectedPoints: ["tcp", "udp", "connection", "reliable", "speed"],
+        expectedPoints: [
+          "tcp",
+          "udp",
+          "connection",
+          "reliable",
+          "speed",
+        ],
       },
       {
         question:
@@ -217,31 +491,41 @@ const roleData: Record<string, RoleData> = {
           "What is the purpose of unit testing and integration testing?",
         category: "Software Engineering",
         difficulty: "Intermediate",
-        expectedPoints: ["unit", "integration", "testing", "bug"],
+        expectedPoints: [
+          "unit",
+          "integration",
+          "testing",
+          "bug",
+        ],
       },
     ],
     resources: [
       {
         title: "MDN Web Docs",
-        description: "Web fundamentals, APIs, JavaScript and browser technologies.",
+        description:
+          "Web fundamentals, APIs, JavaScript and browser technologies.",
         type: "Website",
         url: "https://developer.mozilla.org/",
       },
       {
         title: "LeetCode",
-        description: "DSA and coding interview practice.",
+        description:
+          "DSA and coding interview practice.",
         type: "Practice",
         url: "https://leetcode.com/",
       },
       {
         title: "GeeksforGeeks",
-        description: "DSA, DBMS, OS, networking and interview questions.",
+        description:
+          "DSA, DBMS, OS, networking and interview questions.",
         type: "Website",
         url: "https://www.geeksforgeeks.org/",
       },
       {
-        title: "Designing Data-Intensive Applications",
-        description: "Excellent book for advanced software and system design concepts.",
+        title:
+          "Designing Data-Intensive Applications",
+        description:
+          "Excellent book for advanced software and system design concepts.",
         type: "Book",
         url: "https://dataintensive.net/",
       },
@@ -258,94 +542,150 @@ const roleData: Record<string, RoleData> = {
           "What is the difference between semantic HTML and non-semantic HTML?",
         category: "HTML",
         difficulty: "Beginner",
-        expectedPoints: ["semantic", "html", "accessibility", "structure"],
+        expectedPoints: [
+          "semantic",
+          "html",
+          "accessibility",
+          "structure",
+        ],
       },
       {
         question:
           "Explain the CSS box model.",
         category: "CSS",
         difficulty: "Beginner",
-        expectedPoints: ["margin", "border", "padding", "content"],
+        expectedPoints: [
+          "margin",
+          "border",
+          "padding",
+          "content",
+        ],
       },
       {
         question:
           "What is responsive web design and how do you implement it?",
         category: "CSS",
         difficulty: "Beginner",
-        expectedPoints: ["responsive", "media", "screen", "flexible"],
+        expectedPoints: [
+          "responsive",
+          "media",
+          "screen",
+          "flexible",
+        ],
       },
       {
         question:
           "What is the difference between state and props in React?",
         category: "React",
         difficulty: "Beginner",
-        expectedPoints: ["state", "props", "parent", "component"],
+        expectedPoints: [
+          "state",
+          "props",
+          "parent",
+          "component",
+        ],
       },
       {
         question:
           "Why is the key prop important when rendering lists in React?",
         category: "React",
         difficulty: "Intermediate",
-        expectedPoints: ["key", "unique", "reconciliation", "render"],
+        expectedPoints: [
+          "key",
+          "unique",
+          "reconciliation",
+          "render",
+        ],
       },
       {
         question:
           "What is the purpose of React hooks such as useState and useEffect?",
         category: "React",
         difficulty: "Intermediate",
-        expectedPoints: ["hook", "state", "effect", "component"],
+        expectedPoints: [
+          "hook",
+          "state",
+          "effect",
+          "component",
+        ],
       },
       {
         question:
           "Explain event bubbling and event delegation in JavaScript.",
         category: "JavaScript",
         difficulty: "Advanced",
-        expectedPoints: ["event", "bubbling", "parent", "delegation"],
+        expectedPoints: [
+          "event",
+          "bubbling",
+          "parent",
+          "delegation",
+        ],
       },
       {
         question:
           "What is the difference between localStorage and sessionStorage?",
         category: "Web APIs",
         difficulty: "Beginner",
-        expectedPoints: ["localstorage", "sessionstorage", "browser", "session"],
+        expectedPoints: [
+          "localstorage",
+          "sessionstorage",
+          "browser",
+          "session",
+        ],
       },
       {
         question:
           "How would you improve the loading speed of a React website?",
         category: "Performance",
         difficulty: "Advanced",
-        expectedPoints: ["lazy", "code", "image", "bundle", "cache"],
+        expectedPoints: [
+          "lazy",
+          "code",
+          "image",
+          "bundle",
+          "cache",
+        ],
       },
       {
         question:
           "What is accessibility and why is it important in frontend development?",
         category: "Accessibility",
         difficulty: "Intermediate",
-        expectedPoints: ["accessibility", "keyboard", "screen", "semantic"],
+        expectedPoints: [
+          "accessibility",
+          "keyboard",
+          "screen",
+          "semantic",
+        ],
       },
     ],
     resources: [
       {
         title: "MDN Web Docs",
-        description: "HTML, CSS, JavaScript and web platform fundamentals.",
+        description:
+          "HTML, CSS, JavaScript and web platform fundamentals.",
         type: "Website",
         url: "https://developer.mozilla.org/en-US/docs/Learn_web_development",
       },
       {
         title: "React Documentation",
-        description: "Official React learning and reference material.",
+        description:
+          "Official React learning and reference material.",
         type: "Website",
         url: "https://react.dev/",
       },
       {
         title: "web.dev",
-        description: "Modern web performance, accessibility and best practices.",
+        description:
+          "Modern web performance, accessibility and best practices.",
         type: "Website",
         url: "https://web.dev/",
       },
       {
-        title: "JavaScript: The Definitive Guide",
-        description: "Comprehensive JavaScript reference and learning book.",
+        title:
+          "JavaScript: The Definitive Guide",
+        description:
+          "Comprehensive JavaScript reference and learning book.",
         type: "Book",
         url: "https://www.oreilly.com/library/view/javascript-the-definitive/9781098148172/",
       },
@@ -362,80 +702,128 @@ const roleData: Record<string, RoleData> = {
           "What is the difference between SQL and NoSQL databases?",
         category: "Databases",
         difficulty: "Beginner",
-        expectedPoints: ["sql", "nosql", "relational", "document"],
+        expectedPoints: [
+          "sql",
+          "nosql",
+          "relational",
+          "document",
+        ],
       },
       {
         question:
           "What is database indexing and what trade-offs does it introduce?",
         category: "Databases",
         difficulty: "Intermediate",
-        expectedPoints: ["index", "query", "read", "write", "storage"],
+        expectedPoints: [
+          "index",
+          "query",
+          "read",
+          "write",
+          "storage",
+        ],
       },
       {
         question:
           "What are ACID properties in database transactions?",
         category: "DBMS",
         difficulty: "Intermediate",
-        expectedPoints: ["atomicity", "consistency", "isolation", "durability"],
+        expectedPoints: [
+          "atomicity",
+          "consistency",
+          "isolation",
+          "durability",
+        ],
       },
       {
         question:
           "How does JWT-based authentication work?",
         category: "Authentication",
         difficulty: "Intermediate",
-        expectedPoints: ["jwt", "token", "authentication", "server"],
+        expectedPoints: [
+          "jwt",
+          "token",
+          "authentication",
+          "server",
+        ],
       },
       {
         question:
           "What is caching and when would you use Redis or another cache?",
         category: "Performance",
         difficulty: "Advanced",
-        expectedPoints: ["cache", "redis", "memory", "performance"],
+        expectedPoints: [
+          "cache",
+          "redis",
+          "memory",
+          "performance",
+        ],
       },
       {
         question:
           "How would you design a scalable REST API?",
         category: "System Design",
         difficulty: "Advanced",
-        expectedPoints: ["api", "scalable", "database", "cache", "load"],
+        expectedPoints: [
+          "api",
+          "scalable",
+          "database",
+          "cache",
+          "load",
+        ],
       },
       {
         question:
           "What is rate limiting and why is it useful?",
         category: "Security",
         difficulty: "Intermediate",
-        expectedPoints: ["rate", "limit", "abuse", "request", "security"],
+        expectedPoints: [
+          "rate",
+          "limit",
+          "abuse",
+          "request",
+          "security",
+        ],
       },
       {
         question:
           "How should passwords be securely stored?",
         category: "Security",
         difficulty: "Intermediate",
-        expectedPoints: ["hash", "password", "salt", "bcrypt"],
+        expectedPoints: [
+          "hash",
+          "password",
+          "salt",
+          "bcrypt",
+        ],
       },
     ],
     resources: [
       {
         title: "Node.js Documentation",
-        description: "Official Node.js runtime documentation.",
+        description:
+          "Official Node.js runtime documentation.",
         type: "Website",
         url: "https://nodejs.org/docs/latest/api/",
       },
       {
         title: "PostgreSQL Documentation",
-        description: "Official PostgreSQL database documentation.",
+        description:
+          "Official PostgreSQL database documentation.",
         type: "Website",
         url: "https://www.postgresql.org/docs/",
       },
       {
         title: "System Design Primer",
-        description: "Open-source system design interview preparation.",
+        description:
+          "Open-source system design interview preparation.",
         type: "Practice",
         url: "https://github.com/donnemartin/system-design-primer",
       },
       {
-        title: "Designing Data-Intensive Applications",
-        description: "Distributed systems and data architecture.",
+        title:
+          "Designing Data-Intensive Applications",
+        description:
+          "Distributed systems and data architecture.",
         type: "Book",
         url: "https://dataintensive.net/",
       },
@@ -452,66 +840,103 @@ const roleData: Record<string, RoleData> = {
           "Explain the complete flow from a browser request to a database response.",
         category: "Full Stack",
         difficulty: "Intermediate",
-        expectedPoints: ["browser", "server", "api", "database", "response"],
+        expectedPoints: [
+          "browser",
+          "server",
+          "api",
+          "database",
+          "response",
+        ],
       },
       {
         question:
           "How would you structure a production React and Node.js application?",
         category: "Architecture",
         difficulty: "Advanced",
-        expectedPoints: ["frontend", "backend", "api", "database", "structure"],
+        expectedPoints: [
+          "frontend",
+          "backend",
+          "api",
+          "database",
+          "structure",
+        ],
       },
       {
         question:
           "What is CORS and why can it cause frontend API errors?",
         category: "Web Security",
         difficulty: "Intermediate",
-        expectedPoints: ["cors", "origin", "browser", "request"],
+        expectedPoints: [
+          "cors",
+          "origin",
+          "browser",
+          "request",
+        ],
       },
       {
         question:
           "How would you secure a full-stack application?",
         category: "Security",
         difficulty: "Advanced",
-        expectedPoints: ["authentication", "authorization", "validation", "https"],
+        expectedPoints: [
+          "authentication",
+          "authorization",
+          "validation",
+          "https",
+        ],
       },
       {
         question:
           "How would you deploy a full-stack application?",
         category: "Deployment",
         difficulty: "Intermediate",
-        expectedPoints: ["frontend", "backend", "database", "deployment"],
+        expectedPoints: [
+          "frontend",
+          "backend",
+          "database",
+          "deployment",
+        ],
       },
       {
         question:
           "How would you diagnose a production bug reported by users?",
         category: "Debugging",
         difficulty: "Advanced",
-        expectedPoints: ["logs", "reproduce", "monitoring", "debug", "fix"],
+        expectedPoints: [
+          "logs",
+          "reproduce",
+          "monitoring",
+          "debug",
+          "fix",
+        ],
       },
     ],
     resources: [
       {
         title: "React",
-        description: "Official React documentation.",
+        description:
+          "Official React documentation.",
         type: "Website",
         url: "https://react.dev/",
       },
       {
         title: "Node.js",
-        description: "Official Node.js documentation.",
+        description:
+          "Official Node.js documentation.",
         type: "Website",
         url: "https://nodejs.org/",
       },
       {
         title: "MDN",
-        description: "Core web platform reference.",
+        description:
+          "Core web platform reference.",
         type: "Website",
         url: "https://developer.mozilla.org/",
       },
       {
         title: "Full Stack Open",
-        description: "Modern full-stack web development course.",
+        description:
+          "Modern full-stack web development course.",
         type: "Practice",
         url: "https://fullstackopen.com/en/",
       },
@@ -528,66 +953,100 @@ const roleData: Record<string, RoleData> = {
           "What is the difference between mean, median and mode?",
         category: "Statistics",
         difficulty: "Beginner",
-        expectedPoints: ["mean", "median", "mode", "data"],
+        expectedPoints: [
+          "mean",
+          "median",
+          "mode",
+          "data",
+        ],
       },
       {
         question:
           "What is the difference between WHERE and HAVING in SQL?",
         category: "SQL",
         difficulty: "Intermediate",
-        expectedPoints: ["where", "having", "group", "filter"],
+        expectedPoints: [
+          "where",
+          "having",
+          "group",
+          "filter",
+        ],
       },
       {
         question:
           "How would you handle missing values in a dataset?",
         category: "Data Cleaning",
         difficulty: "Intermediate",
-        expectedPoints: ["missing", "remove", "impute", "data"],
+        expectedPoints: [
+          "missing",
+          "remove",
+          "impute",
+          "data",
+        ],
       },
       {
         question:
           "What is an INNER JOIN and when would you use it?",
         category: "SQL",
         difficulty: "Beginner",
-        expectedPoints: ["inner", "join", "table", "matching"],
+        expectedPoints: [
+          "inner",
+          "join",
+          "table",
+          "matching",
+        ],
       },
       {
         question:
           "How would you explain a dashboard insight to a non-technical manager?",
         category: "Communication",
         difficulty: "Intermediate",
-        expectedPoints: ["insight", "business", "simple", "decision"],
+        expectedPoints: [
+          "insight",
+          "business",
+          "simple",
+          "decision",
+        ],
       },
       {
         question:
           "What makes a good data visualization?",
         category: "Visualization",
         difficulty: "Beginner",
-        expectedPoints: ["clear", "chart", "audience", "insight"],
+        expectedPoints: [
+          "clear",
+          "chart",
+          "audience",
+          "insight",
+        ],
       },
     ],
     resources: [
       {
         title: "Kaggle",
-        description: "Datasets, notebooks and data science practice.",
+        description:
+          "Datasets, notebooks and data science practice.",
         type: "Practice",
         url: "https://www.kaggle.com/",
       },
       {
         title: "SQLBolt",
-        description: "Interactive SQL lessons and exercises.",
+        description:
+          "Interactive SQL lessons and exercises.",
         type: "Practice",
         url: "https://sqlbolt.com/",
       },
       {
         title: "Mode SQL Tutorial",
-        description: "Practical SQL and data analysis learning.",
+        description:
+          "Practical SQL and data analysis learning.",
         type: "Website",
         url: "https://mode.com/sql-tutorial/",
       },
       {
         title: "Storytelling with Data",
-        description: "Book focused on communicating data effectively.",
+        description:
+          "Book focused on communicating data effectively.",
         type: "Book",
         url: "https://www.storytellingwithdata.com/",
       },
@@ -604,53 +1063,82 @@ const roleData: Record<string, RoleData> = {
           "What is the CIA triad in cybersecurity?",
         category: "Security Fundamentals",
         difficulty: "Beginner",
-        expectedPoints: ["confidentiality", "integrity", "availability"],
+        expectedPoints: [
+          "confidentiality",
+          "integrity",
+          "availability",
+        ],
       },
       {
         question:
           "What is the difference between hashing and encryption?",
         category: "Cryptography",
         difficulty: "Intermediate",
-        expectedPoints: ["hash", "encryption", "reversible", "password"],
+        expectedPoints: [
+          "hash",
+          "encryption",
+          "reversible",
+          "password",
+        ],
       },
       {
         question:
           "What is phishing and how can organizations reduce the risk?",
         category: "Threats",
         difficulty: "Beginner",
-        expectedPoints: ["phishing", "email", "awareness", "security"],
+        expectedPoints: [
+          "phishing",
+          "email",
+          "awareness",
+          "security",
+        ],
       },
       {
         question:
           "What is the purpose of a firewall?",
         category: "Networking Security",
         difficulty: "Beginner",
-        expectedPoints: ["firewall", "traffic", "network", "rule"],
+        expectedPoints: [
+          "firewall",
+          "traffic",
+          "network",
+          "rule",
+        ],
       },
       {
         question:
           "How would you respond to a suspected security incident?",
         category: "Incident Response",
         difficulty: "Advanced",
-        expectedPoints: ["detect", "contain", "investigate", "recover"],
+        expectedPoints: [
+          "detect",
+          "contain",
+          "investigate",
+          "recover",
+        ],
       },
     ],
     resources: [
       {
         title: "OWASP",
-        description: "Web application security risks and best practices.",
+        description:
+          "Web application security risks and best practices.",
         type: "Website",
         url: "https://owasp.org/",
       },
       {
-        title: "PortSwigger Web Security Academy",
-        description: "Hands-on web security labs.",
+        title:
+          "PortSwigger Web Security Academy",
+        description:
+          "Hands-on web security labs.",
         type: "Practice",
         url: "https://portswigger.net/web-security",
       },
       {
-        title: "NIST Cybersecurity Framework",
-        description: "Cybersecurity guidance and framework resources.",
+        title:
+          "NIST Cybersecurity Framework",
+        description:
+          "Cybersecurity guidance and framework resources.",
         type: "Website",
         url: "https://www.nist.gov/cyberframework",
       },
@@ -667,53 +1155,81 @@ const roleData: Record<string, RoleData> = {
           "What problem does Docker solve?",
         category: "Containers",
         difficulty: "Beginner",
-        expectedPoints: ["docker", "container", "environment", "deployment"],
+        expectedPoints: [
+          "docker",
+          "container",
+          "environment",
+          "deployment",
+        ],
       },
       {
         question:
           "What is CI/CD and why is it important?",
         category: "DevOps",
         difficulty: "Beginner",
-        expectedPoints: ["continuous", "integration", "deployment", "automation"],
+        expectedPoints: [
+          "continuous",
+          "integration",
+          "deployment",
+          "automation",
+        ],
       },
       {
         question:
           "What is the difference between horizontal and vertical scaling?",
         category: "Cloud Architecture",
         difficulty: "Intermediate",
-        expectedPoints: ["horizontal", "vertical", "server", "scale"],
+        expectedPoints: [
+          "horizontal",
+          "vertical",
+          "server",
+          "scale",
+        ],
       },
       {
         question:
           "What is infrastructure as code?",
         category: "Cloud",
         difficulty: "Intermediate",
-        expectedPoints: ["infrastructure", "code", "automation", "terraform"],
+        expectedPoints: [
+          "infrastructure",
+          "code",
+          "automation",
+          "terraform",
+        ],
       },
       {
         question:
           "How would you monitor a production cloud application?",
         category: "Monitoring",
         difficulty: "Advanced",
-        expectedPoints: ["logs", "metrics", "alerts", "monitoring"],
+        expectedPoints: [
+          "logs",
+          "metrics",
+          "alerts",
+          "monitoring",
+        ],
       },
     ],
     resources: [
       {
         title: "AWS Documentation",
-        description: "Official AWS cloud learning and documentation.",
+        description:
+          "Official AWS cloud learning and documentation.",
         type: "Website",
         url: "https://docs.aws.amazon.com/",
       },
       {
         title: "Docker Documentation",
-        description: "Official Docker documentation and guides.",
+        description:
+          "Official Docker documentation and guides.",
         type: "Website",
         url: "https://docs.docker.com/",
       },
       {
         title: "Kubernetes Documentation",
-        description: "Container orchestration documentation.",
+        description:
+          "Container orchestration documentation.",
         type: "Website",
         url: "https://kubernetes.io/docs/",
       },
@@ -730,53 +1246,83 @@ const roleData: Record<string, RoleData> = {
           "What is the difference between supervised and unsupervised learning?",
         category: "Machine Learning",
         difficulty: "Beginner",
-        expectedPoints: ["supervised", "unsupervised", "label", "data"],
+        expectedPoints: [
+          "supervised",
+          "unsupervised",
+          "label",
+          "data",
+        ],
       },
       {
         question:
           "What is overfitting and how can you reduce it?",
         category: "Machine Learning",
         difficulty: "Intermediate",
-        expectedPoints: ["overfitting", "validation", "regularization", "data"],
+        expectedPoints: [
+          "overfitting",
+          "validation",
+          "regularization",
+          "data",
+        ],
       },
       {
         question:
           "Explain precision, recall and why they matter.",
         category: "Model Evaluation",
         difficulty: "Intermediate",
-        expectedPoints: ["precision", "recall", "false", "positive"],
+        expectedPoints: [
+          "precision",
+          "recall",
+          "false",
+          "positive",
+        ],
       },
       {
         question:
           "What is the difference between training, validation and test datasets?",
         category: "Machine Learning",
         difficulty: "Beginner",
-        expectedPoints: ["training", "validation", "test", "model"],
+        expectedPoints: [
+          "training",
+          "validation",
+          "test",
+          "model",
+        ],
       },
       {
         question:
           "How would you deploy a machine learning model into a production application?",
         category: "AI Engineering",
         difficulty: "Advanced",
-        expectedPoints: ["model", "api", "deployment", "monitoring"],
+        expectedPoints: [
+          "model",
+          "api",
+          "deployment",
+          "monitoring",
+        ],
       },
     ],
     resources: [
       {
-        title: "Google Machine Learning Crash Course",
-        description: "Practical introduction to machine learning concepts.",
+        title:
+          "Google Machine Learning Crash Course",
+        description:
+          "Practical introduction to machine learning concepts.",
         type: "Website",
         url: "https://developers.google.com/machine-learning/crash-course",
       },
       {
         title: "Kaggle Learn",
-        description: "Hands-on machine learning and data courses.",
+        description:
+          "Hands-on machine learning and data courses.",
         type: "Practice",
         url: "https://www.kaggle.com/learn",
       },
       {
-        title: "Hands-On Machine Learning",
-        description: "Practical machine learning book.",
+        title:
+          "Hands-On Machine Learning",
+        description:
+          "Practical machine learning book.",
         type: "Book",
         url: "https://www.oreilly.com/library/view/hands-on-machine-learning/9781098125974/",
       },
@@ -793,53 +1339,81 @@ const roleData: Record<string, RoleData> = {
           "What is the difference between verification and validation?",
         category: "Testing Fundamentals",
         difficulty: "Beginner",
-        expectedPoints: ["verification", "validation", "requirements", "product"],
+        expectedPoints: [
+          "verification",
+          "validation",
+          "requirements",
+          "product",
+        ],
       },
       {
         question:
           "What is the difference between a test case and a test scenario?",
         category: "Testing",
         difficulty: "Beginner",
-        expectedPoints: ["test", "case", "scenario", "steps"],
+        expectedPoints: [
+          "test",
+          "case",
+          "scenario",
+          "steps",
+        ],
       },
       {
         question:
           "What is regression testing?",
         category: "Testing",
         difficulty: "Beginner",
-        expectedPoints: ["regression", "changes", "existing", "bugs"],
+        expectedPoints: [
+          "regression",
+          "changes",
+          "existing",
+          "bugs",
+        ],
       },
       {
         question:
           "What is API testing and what would you validate?",
         category: "API Testing",
         difficulty: "Intermediate",
-        expectedPoints: ["api", "status", "response", "request"],
+        expectedPoints: [
+          "api",
+          "status",
+          "response",
+          "request",
+        ],
       },
       {
         question:
           "When would you choose automation testing over manual testing?",
         category: "Automation",
         difficulty: "Intermediate",
-        expectedPoints: ["automation", "repeat", "manual", "testing"],
+        expectedPoints: [
+          "automation",
+          "repeat",
+          "manual",
+          "testing",
+        ],
       },
     ],
     resources: [
       {
         title: "ISTQB",
-        description: "International software testing certification resources.",
+        description:
+          "International software testing certification resources.",
         type: "Website",
         url: "https://www.istqb.org/",
       },
       {
         title: "Playwright",
-        description: "Modern end-to-end browser automation.",
+        description:
+          "Modern end-to-end browser automation.",
         type: "Practice",
         url: "https://playwright.dev/",
       },
       {
         title: "Postman",
-        description: "API development and testing platform.",
+        description:
+          "API development and testing platform.",
         type: "Practice",
         url: "https://www.postman.com/",
       },
@@ -856,53 +1430,82 @@ const roleData: Record<string, RoleData> = {
           "What is the role of a business analyst in an organization?",
         category: "Business Analysis",
         difficulty: "Beginner",
-        expectedPoints: ["business", "requirements", "stakeholder", "solution"],
+        expectedPoints: [
+          "business",
+          "requirements",
+          "stakeholder",
+          "solution",
+        ],
       },
       {
         question:
           "How would you gather requirements from stakeholders?",
         category: "Requirements",
         difficulty: "Intermediate",
-        expectedPoints: ["requirements", "stakeholder", "interview", "document"],
+        expectedPoints: [
+          "requirements",
+          "stakeholder",
+          "interview",
+          "document",
+        ],
       },
       {
         question:
           "What is the difference between functional and non-functional requirements?",
         category: "Requirements",
         difficulty: "Intermediate",
-        expectedPoints: ["functional", "non-functional", "performance", "feature"],
+        expectedPoints: [
+          "functional",
+          "non-functional",
+          "performance",
+          "feature",
+        ],
       },
       {
         question:
           "How would you handle conflicting requirements from two stakeholders?",
         category: "Stakeholder Management",
         difficulty: "Advanced",
-        expectedPoints: ["stakeholder", "conflict", "priority", "communication"],
+        expectedPoints: [
+          "stakeholder",
+          "conflict",
+          "priority",
+          "communication",
+        ],
       },
       {
         question:
           "What is a KPI and how would you select useful KPIs?",
         category: "Analytics",
         difficulty: "Intermediate",
-        expectedPoints: ["kpi", "metric", "goal", "business"],
+        expectedPoints: [
+          "kpi",
+          "metric",
+          "goal",
+          "business",
+        ],
       },
     ],
     resources: [
       {
         title: "IIBA",
-        description: "International Institute of Business Analysis resources.",
+        description:
+          "International Institute of Business Analysis resources.",
         type: "Website",
         url: "https://www.iiba.org/",
       },
       {
         title: "BA Times",
-        description: "Business analysis articles and career resources.",
+        description:
+          "Business analysis articles and career resources.",
         type: "Website",
         url: "https://www.batimes.com/",
       },
       {
-        title: "Business Analysis for Practitioners",
-        description: "Practical business analysis reference.",
+        title:
+          "Business Analysis for Practitioners",
+        description:
+          "Practical business analysis reference.",
         type: "Book",
         url: "https://www.pmi.org/pmbok-guide-standards/foundational/business-analysis",
       },
@@ -919,53 +1522,81 @@ const roleData: Record<string, RoleData> = {
           "What is the difference between SEO and paid search?",
         category: "Digital Marketing",
         difficulty: "Beginner",
-        expectedPoints: ["seo", "paid", "search", "organic"],
+        expectedPoints: [
+          "seo",
+          "paid",
+          "search",
+          "organic",
+        ],
       },
       {
         question:
           "How would you create a digital marketing strategy for a new product?",
         category: "Strategy",
         difficulty: "Intermediate",
-        expectedPoints: ["audience", "strategy", "content", "channel"],
+        expectedPoints: [
+          "audience",
+          "strategy",
+          "content",
+          "channel",
+        ],
       },
       {
         question:
           "What marketing KPIs would you monitor?",
         category: "Analytics",
         difficulty: "Beginner",
-        expectedPoints: ["kpi", "conversion", "traffic", "engagement"],
+        expectedPoints: [
+          "kpi",
+          "conversion",
+          "traffic",
+          "engagement",
+        ],
       },
       {
         question:
           "How would you measure the success of a social media campaign?",
         category: "Social Media",
         difficulty: "Intermediate",
-        expectedPoints: ["engagement", "reach", "conversion", "campaign"],
+        expectedPoints: [
+          "engagement",
+          "reach",
+          "conversion",
+          "campaign",
+        ],
       },
       {
         question:
           "What is a target audience and how do you identify one?",
         category: "Marketing Strategy",
         difficulty: "Beginner",
-        expectedPoints: ["audience", "customer", "segment", "research"],
+        expectedPoints: [
+          "audience",
+          "customer",
+          "segment",
+          "research",
+        ],
       },
     ],
     resources: [
       {
         title: "Google Skillshop",
-        description: "Google Ads, Analytics and digital marketing training.",
+        description:
+          "Google Ads, Analytics and digital marketing training.",
         type: "Website",
         url: "https://skillshop.withgoogle.com/",
       },
       {
         title: "HubSpot Academy",
-        description: "Free marketing, sales and CRM learning resources.",
+        description:
+          "Free marketing, sales and CRM learning resources.",
         type: "Website",
         url: "https://academy.hubspot.com/",
       },
       {
         title: "Google Analytics",
-        description: "Official analytics learning resources.",
+        description:
+          "Official analytics learning resources.",
         type: "Website",
         url: "https://analytics.google.com/",
       },
@@ -982,53 +1613,81 @@ const roleData: Record<string, RoleData> = {
           "What are the main responsibilities of an HR professional?",
         category: "HR Fundamentals",
         difficulty: "Beginner",
-        expectedPoints: ["recruitment", "employees", "performance", "culture"],
+        expectedPoints: [
+          "recruitment",
+          "employees",
+          "performance",
+          "culture",
+        ],
       },
       {
         question:
           "How would you conduct a structured interview?",
         category: "Recruitment",
         difficulty: "Intermediate",
-        expectedPoints: ["questions", "criteria", "candidate", "evaluation"],
+        expectedPoints: [
+          "questions",
+          "criteria",
+          "candidate",
+          "evaluation",
+        ],
       },
       {
         question:
           "How would you handle an employee conflict?",
         category: "Employee Relations",
         difficulty: "Intermediate",
-        expectedPoints: ["conflict", "communication", "listen", "solution"],
+        expectedPoints: [
+          "conflict",
+          "communication",
+          "listen",
+          "solution",
+        ],
       },
       {
         question:
           "What makes a good employee performance review?",
         category: "Performance Management",
         difficulty: "Intermediate",
-        expectedPoints: ["performance", "feedback", "goals", "improvement"],
+        expectedPoints: [
+          "performance",
+          "feedback",
+          "goals",
+          "improvement",
+        ],
       },
       {
         question:
           "How can HR improve employee retention?",
         category: "HR Strategy",
         difficulty: "Advanced",
-        expectedPoints: ["retention", "engagement", "culture", "growth"],
+        expectedPoints: [
+          "retention",
+          "engagement",
+          "culture",
+          "growth",
+        ],
       },
     ],
     resources: [
       {
         title: "SHRM",
-        description: "Professional HR resources and career information.",
+        description:
+          "Professional HR resources and career information.",
         type: "Website",
         url: "https://www.shrm.org/",
       },
       {
         title: "CIPD",
-        description: "Professional HR and people-management resources.",
+        description:
+          "Professional HR and people-management resources.",
         type: "Website",
         url: "https://www.cipd.org/",
       },
       {
         title: "Harvard Business Review",
-        description: "Leadership, management and workplace research.",
+        description:
+          "Leadership, management and workplace research.",
         type: "Website",
         url: "https://hbr.org/",
       },
@@ -1045,53 +1704,83 @@ const roleData: Record<string, RoleData> = {
           "Explain the three main financial statements.",
         category: "Accounting",
         difficulty: "Beginner",
-        expectedPoints: ["income", "balance", "cash", "statement"],
+        expectedPoints: [
+          "income",
+          "balance",
+          "cash",
+          "statement",
+        ],
       },
       {
         question:
           "What is the difference between revenue, profit and cash flow?",
         category: "Finance",
         difficulty: "Beginner",
-        expectedPoints: ["revenue", "profit", "cash", "flow"],
+        expectedPoints: [
+          "revenue",
+          "profit",
+          "cash",
+          "flow",
+        ],
       },
       {
         question:
           "What is working capital?",
         category: "Finance",
         difficulty: "Intermediate",
-        expectedPoints: ["current", "assets", "liabilities", "capital"],
+        expectedPoints: [
+          "current",
+          "assets",
+          "liabilities",
+          "capital",
+        ],
       },
       {
         question:
           "How would you evaluate the financial health of a company?",
         category: "Financial Analysis",
         difficulty: "Advanced",
-        expectedPoints: ["ratio", "profit", "cash", "debt", "revenue"],
+        expectedPoints: [
+          "ratio",
+          "profit",
+          "cash",
+          "debt",
+          "revenue",
+        ],
       },
       {
         question:
           "What is the difference between fixed and variable costs?",
         category: "Cost Accounting",
         difficulty: "Beginner",
-        expectedPoints: ["fixed", "variable", "cost", "production"],
+        expectedPoints: [
+          "fixed",
+          "variable",
+          "cost",
+          "production",
+        ],
       },
     ],
     resources: [
       {
         title: "Investopedia",
-        description: "Finance and accounting concepts explained clearly.",
+        description:
+          "Finance and accounting concepts explained clearly.",
         type: "Website",
         url: "https://www.investopedia.com/",
       },
       {
-        title: "Corporate Finance Institute",
-        description: "Financial modeling and finance learning resources.",
+        title:
+          "Corporate Finance Institute",
+        description:
+          "Financial modeling and finance learning resources.",
         type: "Website",
         url: "https://corporatefinanceinstitute.com/",
       },
       {
         title: "AccountingCoach",
-        description: "Accounting fundamentals and explanations.",
+        description:
+          "Accounting fundamentals and explanations.",
         type: "Website",
         url: "https://www.accountingcoach.com/",
       },
@@ -1108,53 +1797,81 @@ const roleData: Record<string, RoleData> = {
           "How would you identify and qualify a potential customer?",
         category: "Sales",
         difficulty: "Beginner",
-        expectedPoints: ["customer", "lead", "qualify", "need"],
+        expectedPoints: [
+          "customer",
+          "lead",
+          "qualify",
+          "need",
+        ],
       },
       {
         question:
           "How would you handle a customer who says your product is too expensive?",
         category: "Objection Handling",
         difficulty: "Intermediate",
-        expectedPoints: ["value", "customer", "objection", "solution"],
+        expectedPoints: [
+          "value",
+          "customer",
+          "objection",
+          "solution",
+        ],
       },
       {
         question:
           "What is the difference between upselling and cross-selling?",
         category: "Sales Strategy",
         difficulty: "Beginner",
-        expectedPoints: ["upselling", "cross-selling", "customer", "product"],
+        expectedPoints: [
+          "upselling",
+          "cross-selling",
+          "customer",
+          "product",
+        ],
       },
       {
         question:
           "How would you build a long-term relationship with an important client?",
         category: "Relationship Management",
         difficulty: "Intermediate",
-        expectedPoints: ["relationship", "trust", "communication", "customer"],
+        expectedPoints: [
+          "relationship",
+          "trust",
+          "communication",
+          "customer",
+        ],
       },
       {
         question:
           "Which sales KPIs would you monitor?",
         category: "Sales Analytics",
         difficulty: "Intermediate",
-        expectedPoints: ["revenue", "conversion", "pipeline", "kpi"],
+        expectedPoints: [
+          "revenue",
+          "conversion",
+          "pipeline",
+          "kpi",
+        ],
       },
     ],
     resources: [
       {
         title: "HubSpot Academy",
-        description: "Sales, CRM and business development training.",
+        description:
+          "Sales, CRM and business development training.",
         type: "Website",
         url: "https://academy.hubspot.com/",
       },
       {
         title: "Salesforce Trailhead",
-        description: "Free CRM and sales learning platform.",
+        description:
+          "Free CRM and sales learning platform.",
         type: "Practice",
         url: "https://trailhead.salesforce.com/",
       },
       {
         title: "Harvard Business Review",
-        description: "Leadership, sales and management insights.",
+        description:
+          "Leadership, sales and management insights.",
         type: "Website",
         url: "https://hbr.org/",
       },
@@ -1171,53 +1888,81 @@ const roleData: Record<string, RoleData> = {
           "What are the main responsibilities of a project manager?",
         category: "Project Management",
         difficulty: "Beginner",
-        expectedPoints: ["planning", "team", "scope", "schedule"],
+        expectedPoints: [
+          "planning",
+          "team",
+          "scope",
+          "schedule",
+        ],
       },
       {
         question:
           "What is the difference between Agile and Waterfall?",
         category: "Methodologies",
         difficulty: "Beginner",
-        expectedPoints: ["agile", "waterfall", "iteration", "planning"],
+        expectedPoints: [
+          "agile",
+          "waterfall",
+          "iteration",
+          "planning",
+        ],
       },
       {
         question:
           "How would you handle a project that is falling behind schedule?",
         category: "Problem Solving",
         difficulty: "Intermediate",
-        expectedPoints: ["schedule", "risk", "priority", "team"],
+        expectedPoints: [
+          "schedule",
+          "risk",
+          "priority",
+          "team",
+        ],
       },
       {
         question:
           "How do you manage conflicting stakeholder expectations?",
         category: "Stakeholder Management",
         difficulty: "Advanced",
-        expectedPoints: ["stakeholder", "communication", "scope", "priority"],
+        expectedPoints: [
+          "stakeholder",
+          "communication",
+          "scope",
+          "priority",
+        ],
       },
       {
         question:
           "What is risk management and how would you use it?",
         category: "Risk Management",
         difficulty: "Intermediate",
-        expectedPoints: ["risk", "identify", "impact", "mitigation"],
+        expectedPoints: [
+          "risk",
+          "identify",
+          "impact",
+          "mitigation",
+        ],
       },
     ],
     resources: [
       {
         title: "PMI",
-        description: "Professional project management standards and resources.",
+        description:
+          "Professional project management standards and resources.",
         type: "Website",
         url: "https://www.pmi.org/",
       },
       {
         title: "Scrum Guide",
-        description: "Official Scrum framework guide.",
+        description:
+          "Official Scrum framework guide.",
         type: "Website",
         url: "https://scrumguides.org/",
       },
       {
         title: "Atlassian Agile Coach",
-        description: "Agile, Scrum and project-management learning resources.",
+        description:
+          "Agile, Scrum and project-management learning resources.",
         type: "Website",
         url: "https://www.atlassian.com/agile",
       },
@@ -1234,47 +1979,74 @@ const roleData: Record<string, RoleData> = {
           "What is supply chain management?",
         category: "Supply Chain",
         difficulty: "Beginner",
-        expectedPoints: ["supplier", "inventory", "logistics", "customer"],
+        expectedPoints: [
+          "supplier",
+          "inventory",
+          "logistics",
+          "customer",
+        ],
       },
       {
         question:
           "What is safety stock and why is it important?",
         category: "Inventory",
         difficulty: "Intermediate",
-        expectedPoints: ["safety", "stock", "demand", "inventory"],
+        expectedPoints: [
+          "safety",
+          "stock",
+          "demand",
+          "inventory",
+        ],
       },
       {
         question:
           "How would you reduce unnecessary inventory costs?",
         category: "Operations",
         difficulty: "Intermediate",
-        expectedPoints: ["inventory", "cost", "demand", "forecast"],
+        expectedPoints: [
+          "inventory",
+          "cost",
+          "demand",
+          "forecast",
+        ],
       },
       {
         question:
           "What factors should be considered when selecting a supplier?",
         category: "Procurement",
         difficulty: "Intermediate",
-        expectedPoints: ["supplier", "cost", "quality", "delivery"],
+        expectedPoints: [
+          "supplier",
+          "cost",
+          "quality",
+          "delivery",
+        ],
       },
       {
         question:
           "How would you respond to a major supply disruption?",
         category: "Risk Management",
         difficulty: "Advanced",
-        expectedPoints: ["disruption", "supplier", "risk", "alternative"],
+        expectedPoints: [
+          "disruption",
+          "supplier",
+          "risk",
+          "alternative",
+        ],
       },
     ],
     resources: [
       {
         title: "ASCM",
-        description: "Supply chain and operations professional resources.",
+        description:
+          "Supply chain and operations professional resources.",
         type: "Website",
         url: "https://www.ascm.org/",
       },
       {
         title: "MIT Supply Chain",
-        description: "Supply chain education and research.",
+        description:
+          "Supply chain education and research.",
         type: "Website",
         url: "https://ctl.mit.edu/",
       },
@@ -1289,7 +2061,9 @@ const roleData: Record<string, RoleData> = {
 function AIInterviews() {
   const navigate = useNavigate();
 
-  const [started, setStarted] = useState(false);
+  const [started, setStarted] =
+    useState(false);
+
   const [interviewType, setInterviewType] =
     useState<InterviewType>("technical");
 
@@ -1305,7 +2079,8 @@ function AIInterviews() {
   const [currentQuestion, setCurrentQuestion] =
     useState(0);
 
-  const [answer, setAnswer] = useState("");
+  const [answer, setAnswer] =
+    useState("");
 
   const [scores, setScores] =
     useState<number[]>([]);
@@ -1317,6 +2092,9 @@ function AIInterviews() {
     useState("");
 
   const [showResources, setShowResources] =
+    useState(false);
+
+  const [checkingAccess, setCheckingAccess] =
     useState(false);
 
   /* =========================================================
@@ -1350,43 +2128,88 @@ function AIInterviews() {
 
   /* =========================================================
      START INTERVIEW
+     
+     AI INTERVIEW IS PREMIUM FROM FIRST USE.
+     Active subscription is required.
   ========================================================= */
 
-  const startInterview = () => {
-    let selectedQuestions: Question[];
-
-    if (interviewType === "hr") {
-      selectedQuestions = commonHRQuestions;
-    } else {
-      selectedQuestions =
-        roleData[role]?.questions ||
-        roleData["Software Engineer"].questions;
+  const startInterview = async () => {
+    if (checkingAccess) {
+      return;
     }
 
-    if (difficulty !== "All") {
-      const filtered = selectedQuestions.filter(
-        (question) =>
-          question.difficulty === difficulty
+    setCheckingAccess(true);
+
+    try {
+      const allowed =
+        await canUseFeature(
+          "aiInterview"
+        );
+
+      if (!allowed) {
+        navigate("/subscription");
+        return;
+      }
+
+      let selectedQuestions: Question[];
+
+      if (interviewType === "hr") {
+        selectedQuestions =
+          commonHRQuestions;
+      } else {
+        selectedQuestions =
+          roleData[role]?.questions ||
+          roleData[
+            "Software Engineer"
+          ].questions;
+      }
+
+      if (difficulty !== "All") {
+        const filtered =
+          selectedQuestions.filter(
+            (question) =>
+              question.difficulty ===
+              difficulty
+          );
+
+        if (filtered.length >= 3) {
+          selectedQuestions =
+            filtered;
+        }
+      }
+
+      selectedQuestions = [
+        ...selectedQuestions,
+      ]
+        .sort(() => Math.random() - 0.5)
+        .slice(
+          0,
+          Math.min(
+            8,
+            selectedQuestions.length
+          )
+        );
+
+      setQuestions(
+        selectedQuestions
+      );
+      setCurrentQuestion(0);
+      setAnswer("");
+      setScores([]);
+      setCompleted(false);
+      setFeedback("");
+      setShowResources(false);
+      setStarted(true);
+    } catch (error) {
+      console.error(
+        "AI Interview access check failed:",
+        error
       );
 
-      if (filtered.length >= 3) {
-        selectedQuestions = filtered;
-      }
+      navigate("/subscription");
+    } finally {
+      setCheckingAccess(false);
     }
-
-    // Randomize questions
-    selectedQuestions = [...selectedQuestions]
-      .sort(() => Math.random() - 0.5)
-      .slice(0, Math.min(8, selectedQuestions.length));
-
-    setQuestions(selectedQuestions);
-    setCurrentQuestion(0);
-    setAnswer("");
-    setScores([]);
-    setCompleted(false);
-    setFeedback("");
-    setShowResources(false);
-    setStarted(true);
   };
 
   /* =========================================================
@@ -1397,31 +2220,45 @@ function AIInterviews() {
     userAnswer: string,
     question: Question
   ) => {
-    const text = userAnswer
-      .toLowerCase()
-      .trim();
+    const text =
+      userAnswer
+        .toLowerCase()
+        .trim();
 
-    if (!text) return 0;
+    if (!text) {
+      return 0;
+    }
 
-    const words = text
-      .split(/\s+/)
-      .filter(Boolean);
+    const words =
+      text
+        .split(/\s+/)
+        .filter(Boolean);
 
     const matchedPoints =
       question.expectedPoints.filter(
         (point) =>
-          text.includes(point.toLowerCase())
+          text.includes(
+            point.toLowerCase()
+          )
       ).length;
 
     let score = 30;
 
-    if (words.length >= 20) score += 15;
-    if (words.length >= 50) score += 15;
-    if (words.length >= 90) score += 10;
+    if (words.length >= 20) {
+      score += 15;
+    }
 
-    score += matchedPoints * 8;
+    if (words.length >= 50) {
+      score += 15;
+    }
 
-    // Penalize extremely short answers
+    if (words.length >= 90) {
+      score += 10;
+    }
+
+    score +=
+      matchedPoints * 8;
+
     if (words.length < 10) {
       score -= 15;
     }
@@ -1440,17 +2277,24 @@ function AIInterviews() {
     const question =
       questions[currentQuestion];
 
-    const answerScore = calculateScore(
-      answer,
-      question
-    );
+    if (!question) {
+      return;
+    }
+
+    const answerScore =
+      calculateScore(
+        answer,
+        question
+      );
 
     const updatedScores = [
       ...scores,
       answerScore,
     ];
 
-    setScores(updatedScores);
+    setScores(
+      updatedScores
+    );
 
     if (
       currentQuestion <
@@ -1459,29 +2303,40 @@ function AIInterviews() {
       setCurrentQuestion(
         currentQuestion + 1
       );
+
       setAnswer("");
+
       return;
     }
 
     const total =
       updatedScores.reduce(
-        (sum, value) => sum + value,
+        (sum, value) =>
+          sum + value,
         0
       );
 
-    const finalScore = Math.round(
-      total / updatedScores.length
-    );
+    const finalScore =
+      updatedScores.length > 0
+        ? Math.round(
+            total /
+              updatedScores.length
+          )
+        : 0;
 
     if (finalScore >= 85) {
       setFeedback(
         "Excellent performance! Your answers show strong knowledge, structure and interview readiness. Keep practicing advanced follow-up questions to reach an even higher level."
       );
-    } else if (finalScore >= 70) {
+    } else if (
+      finalScore >= 70
+    ) {
       setFeedback(
         "Very good performance. Your fundamentals are strong. Focus on adding practical examples, measurable results and deeper explanations."
       );
-    } else if (finalScore >= 50) {
+    } else if (
+      finalScore >= 50
+    ) {
       setFeedback(
         "Good starting point. Your answers show some understanding, but you should improve answer structure, technical depth and real-world examples."
       );
@@ -1493,11 +2348,13 @@ function AIInterviews() {
 
     const result = {
       role:
-        interviewType === "technical"
+        interviewType ===
+        "technical"
           ? role
           : "HR Interview",
       score: finalScore,
-      date: new Date().toISOString(),
+      date:
+        new Date().toISOString(),
     };
 
     localStorage.setItem(
@@ -1531,7 +2388,8 @@ function AIInterviews() {
     scores.length > 0
       ? Math.round(
           scores.reduce(
-            (sum, value) => sum + value,
+            (sum, value) =>
+              sum + value,
             0
           ) / scores.length
         )
@@ -1551,7 +2409,9 @@ function AIInterviews() {
             <button
               type="button"
               onClick={() =>
-                navigate("/dashboard")
+                navigate(
+                  "/dashboard"
+                )
               }
               className="flex items-center gap-3 text-left"
             >
@@ -1573,7 +2433,9 @@ function AIInterviews() {
             <button
               type="button"
               onClick={() =>
-                navigate("/dashboard")
+                navigate(
+                  "/dashboard"
+                )
               }
               className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-purple-500"
             >
@@ -1635,10 +2497,13 @@ function AIInterviews() {
                 <button
                   type="button"
                   onClick={() =>
-                    setInterviewType("technical")
+                    setInterviewType(
+                      "technical"
+                    )
                   }
                   className={`rounded-2xl border p-5 text-left transition ${
-                    interviewType === "technical"
+                    interviewType ===
+                    "technical"
                       ? "border-purple-500 bg-purple-500/10"
                       : "border-slate-700 bg-slate-950 hover:border-purple-500/50"
                   }`}
@@ -1658,10 +2523,13 @@ function AIInterviews() {
                 <button
                   type="button"
                   onClick={() =>
-                    setInterviewType("hr")
+                    setInterviewType(
+                      "hr"
+                    )
                   }
                   className={`rounded-2xl border p-5 text-left transition ${
-                    interviewType === "hr"
+                    interviewType ===
+                    "hr"
                       ? "border-pink-500 bg-pink-500/10"
                       : "border-slate-700 bg-slate-950 hover:border-pink-500/50"
                   }`}
@@ -1684,7 +2552,8 @@ function AIInterviews() {
 
             {/* ROLE */}
 
-            {interviewType === "technical" && (
+            {interviewType ===
+              "technical" && (
               <div className="mt-7">
 
                 <label
@@ -1698,7 +2567,9 @@ function AIInterviews() {
                   id="role"
                   value={role}
                   onChange={(event) =>
-                    setRole(event.target.value)
+                    setRole(
+                      event.target.value
+                    )
                   }
                   className="w-full rounded-2xl border border-slate-700 bg-slate-950 px-5 py-4 text-white outline-none focus:border-purple-500"
                 >
@@ -1707,14 +2578,16 @@ function AIInterviews() {
 
                     {roleGroups[
                       "Computer Science & IT"
-                    ].map((item) => (
-                      <option
-                        key={item}
-                        value={item}
-                      >
-                        {item}
-                      </option>
-                    ))}
+                    ].map(
+                      (item) => (
+                        <option
+                          key={item}
+                          value={item}
+                        >
+                          {item}
+                        </option>
+                      )
+                    )}
 
                   </optgroup>
 
@@ -1722,14 +2595,16 @@ function AIInterviews() {
 
                     {roleGroups[
                       "Business & BBA"
-                    ].map((item) => (
-                      <option
-                        key={item}
-                        value={item}
-                      >
-                        {item}
-                      </option>
-                    ))}
+                    ].map(
+                      (item) => (
+                        <option
+                          key={item}
+                          value={item}
+                        >
+                          {item}
+                        </option>
+                      )
+                    )}
 
                   </optgroup>
 
@@ -1760,6 +2635,34 @@ function AIInterviews() {
               </div>
             )}
 
+            {/* HR QUESTION INFO */}
+
+            {interviewType ===
+              "hr" && (
+              <div className="mt-7 rounded-2xl border border-pink-500/10 bg-pink-500/5 p-5">
+
+                <div className="flex items-start gap-3">
+
+                  <FaUserTie className="mt-1 text-xl text-pink-400" />
+
+                  <div>
+                    <p className="font-semibold text-white">
+                      HR & Behavioral Question Bank
+                    </p>
+
+                    <p className="mt-1 text-sm leading-6 text-slate-400">
+                      Practice common interview questions including
+                      self-introduction, strengths, weaknesses,
+                      motivation, teamwork, conflict management,
+                      career goals and closing questions.
+                    </p>
+                  </div>
+
+                </div>
+
+              </div>
+            )}
+
             {/* DIFFICULTY */}
 
             <div className="mt-7">
@@ -1776,7 +2679,8 @@ function AIInterviews() {
                 value={difficulty}
                 onChange={(event) =>
                   setDifficulty(
-                    event.target.value as
+                    event.target
+                      .value as
                       | "All"
                       | Difficulty
                   )
@@ -1802,15 +2706,48 @@ function AIInterviews() {
 
             </div>
 
+            {/* PREMIUM NOTICE */}
+
+            <div className="mt-6 rounded-2xl border border-purple-500/20 bg-purple-500/5 p-4">
+
+              <div className="flex items-start gap-3">
+
+                <FaStar className="mt-1 text-yellow-400" />
+
+                <div>
+                  <p className="font-semibold text-white">
+                    Premium Career Feature
+                  </p>
+
+                  <p className="mt-1 text-sm leading-6 text-slate-400">
+                    AI Interview requires an active CareerPilot
+                    subscription. One active subscription unlocks
+                    all premium career features.
+                  </p>
+                </div>
+
+              </div>
+
+            </div>
+
             {/* START */}
 
             <button
               type="button"
               onClick={startInterview}
-              className="mt-8 flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-500 to-purple-600 px-6 py-4 text-lg font-bold shadow-xl shadow-purple-900/30 transition hover:scale-[1.01]"
+              disabled={checkingAccess}
+              className="mt-8 flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-500 to-purple-600 px-6 py-4 text-lg font-bold shadow-xl shadow-purple-900/30 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
             >
-              Start AI Interview
-              <FaArrowRight />
+              {checkingAccess ? (
+                <>
+                  Checking Subscription...
+                </>
+              ) : (
+                <>
+                  Start AI Interview
+                  <FaArrowRight />
+                </>
+              )}
             </button>
 
           </div>
@@ -1880,25 +2817,30 @@ function AIInterviews() {
 
   if (completed) {
     const resources =
-      interviewType === "technical"
-        ? roleData[role]?.resources || []
+      interviewType ===
+      "technical"
+        ? roleData[role]
+            ?.resources || []
         : [
             {
-              title: "Harvard Business Review",
+              title:
+                "Harvard Business Review",
               description:
                 "Leadership, management, communication and career insights.",
               type: "Website" as const,
               url: "https://hbr.org/",
             },
             {
-              title: "LinkedIn Learning",
+              title:
+                "LinkedIn Learning",
               description:
                 "Professional communication and career development courses.",
               type: "Website" as const,
               url: "https://www.linkedin.com/learning/",
             },
             {
-              title: "Indeed Career Guide",
+              title:
+                "Indeed Career Guide",
               description:
                 "Interview preparation and career guidance.",
               type: "Website" as const,
@@ -1926,7 +2868,9 @@ function AIInterviews() {
             <button
               type="button"
               onClick={() =>
-                navigate("/dashboard")
+                navigate(
+                  "/dashboard"
+                )
               }
               className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold hover:border-purple-500"
             >
@@ -1951,7 +2895,8 @@ function AIInterviews() {
             </h1>
 
             <p className="mt-3 text-slate-400">
-              {interviewType === "technical"
+              {interviewType ===
+              "technical"
                 ? `${role} interview performance report`
                 : "HR / Behavioral interview performance report"}
             </p>
@@ -2019,44 +2964,55 @@ function AIInterviews() {
 
             <div className="mt-6 space-y-4">
 
-              {scores.map((score, index) => (
+              {scores.map(
+                (score, index) => (
 
-                <div
-                  key={index}
-                  className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950 p-5"
-                >
+                  <div
+                    key={index}
+                    className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                  >
 
-                  <div>
+                    <div>
 
-                    <p className="font-semibold">
-                      Question {index + 1}
-                    </p>
+                      <p className="font-semibold">
+                        Question{" "}
+                        {index + 1}
+                      </p>
 
-                    <p className="mt-1 text-sm text-slate-500">
-                      {questions[index]?.category}
-                    </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {
+                          questions[
+                            index
+                          ]?.category
+                        }
+                      </p>
 
-                    <p className="mt-1 text-xs text-slate-600">
-                      {questions[index]?.difficulty}
-                    </p>
+                      <p className="mt-1 text-xs text-slate-600">
+                        {
+                          questions[
+                            index
+                          ]?.difficulty
+                        }
+                      </p>
+
+                    </div>
+
+                    <span
+                      className={`font-bold ${
+                        score >= 80
+                          ? "text-green-400"
+                          : score >= 60
+                          ? "text-yellow-400"
+                          : "text-red-400"
+                      }`}
+                    >
+                      {score}/100
+                    </span>
 
                   </div>
 
-                  <span
-                    className={`font-bold ${
-                      score >= 80
-                        ? "text-green-400"
-                        : score >= 60
-                        ? "text-yellow-400"
-                        : "text-red-400"
-                    }`}
-                  >
-                    {score}/100
-                  </span>
-
-                </div>
-
-              ))}
+                )
+              )}
 
             </div>
 
@@ -2106,15 +3062,18 @@ function AIInterviews() {
             </button>
 
             {showResources && (
-
               <div className="mt-7 grid gap-5 md:grid-cols-2">
 
                 {resources.map(
                   (resource) => (
 
                     <a
-                      key={resource.title}
-                      href={resource.url}
+                      key={
+                        resource.title
+                      }
+                      href={
+                        resource.url
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       className="group rounded-2xl border border-slate-800 bg-slate-950 p-6 transition hover:-translate-y-1 hover:border-cyan-500/50"
@@ -2125,11 +3084,15 @@ function AIInterviews() {
                         <div>
 
                           <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
-                            {resource.type}
+                            {
+                              resource.type
+                            }
                           </span>
 
                           <h3 className="mt-2 text-lg font-bold text-white group-hover:text-cyan-400">
-                            {resource.title}
+                            {
+                              resource.title
+                            }
                           </h3>
 
                         </div>
@@ -2139,7 +3102,9 @@ function AIInterviews() {
                       </div>
 
                       <p className="mt-3 text-sm leading-6 text-slate-400">
-                        {resource.description}
+                        {
+                          resource.description
+                        }
                       </p>
 
                     </a>
@@ -2148,7 +3113,6 @@ function AIInterviews() {
                 )}
 
               </div>
-
             )}
 
           </div>
@@ -2159,7 +3123,9 @@ function AIInterviews() {
 
             <button
               type="button"
-              onClick={restartInterview}
+              onClick={
+                restartInterview
+              }
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-500 px-7 py-4 font-bold transition hover:scale-[1.02]"
             >
               <FaRedo />
@@ -2169,7 +3135,9 @@ function AIInterviews() {
             <button
               type="button"
               onClick={() =>
-                navigate("/dashboard")
+                navigate(
+                  "/dashboard"
+                )
               }
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-7 py-4 font-semibold text-slate-200 transition hover:border-purple-500"
             >
@@ -2190,6 +3158,43 @@ function AIInterviews() {
 
   const question =
     questions[currentQuestion];
+
+  if (!question) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-black via-slate-950 to-purple-950 text-white">
+
+        <div className="flex min-h-screen items-center justify-center px-6">
+
+          <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-8 text-center">
+
+            <FaRobot className="mx-auto text-5xl text-purple-400" />
+
+            <h1 className="mt-5 text-2xl font-bold">
+              Interview session could not be loaded.
+            </h1>
+
+            <p className="mt-3 text-slate-400">
+              Please return to the setup screen and start the interview again.
+            </p>
+
+            <button
+              type="button"
+              onClick={
+                restartInterview
+              }
+              className="mt-7 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-500 px-7 py-4 font-bold"
+            >
+              <FaRedo />
+              Restart
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+    );
+  }
 
   const progress =
     ((currentQuestion + 1) /
@@ -2216,7 +3221,8 @@ function AIInterviews() {
               </h1>
 
               <p className="text-xs text-slate-500">
-                {interviewType === "technical"
+                {interviewType ===
+                "technical"
                   ? role
                   : "HR / Behavioral Interview"}
               </p>
@@ -2228,7 +3234,9 @@ function AIInterviews() {
           <button
             type="button"
             onClick={() =>
-              navigate("/dashboard")
+              navigate(
+                "/dashboard"
+              )
             }
             className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:border-purple-500 hover:text-white"
           >
@@ -2249,12 +3257,17 @@ function AIInterviews() {
           <div className="flex items-center justify-between text-sm">
 
             <span className="font-semibold text-slate-300">
-              Question {currentQuestion + 1} of{" "}
+              Question{" "}
+              {currentQuestion + 1}{" "}
+              of{" "}
               {questions.length}
             </span>
 
             <span className="text-purple-400">
-              {Math.round(progress)}%
+              {Math.round(
+                progress
+              )}
+              %
             </span>
 
           </div>
@@ -2279,17 +3292,23 @@ function AIInterviews() {
           <div className="flex items-center justify-between gap-4">
 
             <span className="rounded-full border border-purple-500/20 bg-purple-500/10 px-4 py-2 text-sm font-semibold text-purple-400">
-              {question.category}
+              {
+                question.category
+              }
             </span>
 
             <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs font-semibold text-slate-400">
-              {question.difficulty}
+              {
+                question.difficulty
+              }
             </span>
 
           </div>
 
           <h2 className="mt-8 text-2xl font-bold leading-relaxed text-white sm:text-3xl">
-            {question.question}
+            {
+              question.question
+            }
           </h2>
 
           <p className="mt-4 text-sm leading-6 text-slate-500">
@@ -2302,7 +3321,9 @@ function AIInterviews() {
           <textarea
             value={answer}
             onChange={(event) =>
-              setAnswer(event.target.value)
+              setAnswer(
+                event.target.value
+              )
             }
             placeholder="Write your answer here..."
             rows={10}
@@ -2315,8 +3336,12 @@ function AIInterviews() {
               {
                 answer
                   .trim()
-                  .split(/\s+/)
-                  .filter(Boolean).length
+                  .split(
+                    /\s+/
+                  )
+                  .filter(
+                    Boolean
+                  ).length
               }{" "}
               words
             </span>
@@ -2336,22 +3361,30 @@ function AIInterviews() {
               type="button"
               onClick={() => {
 
-                if (currentQuestion === 0) {
-                  setStarted(false);
+                if (
+                  currentQuestion ===
+                  0
+                ) {
+                  setStarted(
+                    false
+                  );
                   return;
                 }
 
                 setCurrentQuestion(
-                  currentQuestion - 1
+                  currentQuestion -
+                    1
                 );
 
                 setAnswer("");
 
                 setScores(
                   (previous) =>
-                    previous.slice(0, -1)
+                    previous.slice(
+                      0,
+                      -1
+                    )
                 );
-
               }}
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-950 px-6 py-4 font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
             >
@@ -2361,13 +3394,18 @@ function AIInterviews() {
 
             <button
               type="button"
-              onClick={handleNext}
-              disabled={!answer.trim()}
+              onClick={
+                handleNext
+              }
+              disabled={
+                !answer.trim()
+              }
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-500 px-7 py-4 font-bold text-white transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
             >
 
               {currentQuestion ===
-              questions.length - 1
+              questions.length -
+                1
                 ? "Finish Interview"
                 : "Next Question"}
 

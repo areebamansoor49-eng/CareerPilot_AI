@@ -45,3 +45,5 @@ Thumbs.db
 .cache/
 # User uploaded files
 backend/uploads/
+
+.vercel

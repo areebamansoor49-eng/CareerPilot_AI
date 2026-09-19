@@ -857,7 +857,7 @@ function Dashboard() {
 
   const openOpportunityFinder = () => {
     setMobileSidebarOpen(false);
-    navigate("/internship-finder");
+    navigate("/opportunity-finder");
   };
 
   const openCareerRoadmap = () => {

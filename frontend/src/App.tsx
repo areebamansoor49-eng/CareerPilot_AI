@@ -45,13 +45,11 @@ import Settings from "./pages/Settings";
 
 /* =========================================================
    PAGE HOME BUTTON
-   Shows ONLY one Home button on non-home pages.
 ========================================================= */
 
 function PageHomeButton() {
   const location = useLocation();
 
-  // Home page par Home button show nahi hoga
   if (location.pathname === "/") {
     return null;
   }
@@ -98,10 +96,13 @@ function PageHomeButton() {
 
 /* =========================================================
    PAGE LAYOUT
-   Keeps the single global Home button.
 ========================================================= */
 
-function PageLayout({ children }: { children: ReactNode }) {
+function PageLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
     <>
       <PageHomeButton />
@@ -186,7 +187,7 @@ function App() {
         />
 
         {/* =================================================
-            CAREER FEATURES
+            RESUME ANALYZER
         ================================================= */}
 
         <Route
@@ -198,14 +199,36 @@ function App() {
           }
         />
 
+        {/* =================================================
+            OPPORTUNITY FINDER
+        ================================================= */}
+
         <Route
-          path="/internship-finder"
+          path="/opportunity-finder"
           element={
             <PageLayout>
               <OpportunityFinder />
             </PageLayout>
           }
         />
+
+        {/* =================================================
+            OLD INTERNSHIP FINDER ROUTE
+        ================================================= */}
+
+        <Route
+          path="/internship-finder"
+          element={
+            <Navigate
+              to="/opportunity-finder"
+              replace
+            />
+          }
+        />
+
+        {/* =================================================
+            CAREER ROADMAP
+        ================================================= */}
 
         <Route
           path="/career-roadmap"
@@ -229,10 +252,18 @@ function App() {
           }
         />
 
-        {/* Old route kept for compatibility */}
+        {/* =================================================
+            OLD AI INTERVIEW ROUTE
+        ================================================= */}
+
         <Route
           path="/ai-interviews"
-          element={<Navigate to="/ai-interview" replace />}
+          element={
+            <Navigate
+              to="/ai-interview"
+              replace
+            />
+          }
         />
 
         {/* =================================================
@@ -331,8 +362,6 @@ function App() {
             </PageLayout>
           }
         />
-
-        
 
         <Route
           path="/privacy"

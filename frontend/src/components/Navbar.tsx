@@ -39,8 +39,8 @@ function Navbar() {
       icon: <FaRoad />,
     },
     {
-      title: "Internship Finder",
-      path: "/internship-finder",
+      title: "Opportunity Finder",
+      path: "/opportunity-finder",
       icon: <FaSearch />,
     },
     {

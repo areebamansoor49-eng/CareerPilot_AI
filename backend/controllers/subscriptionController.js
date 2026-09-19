@@ -1,12 +1,8 @@
 const Subscription = require("../models/Subscription");
 
-const updateSubscriptionFromWebhook = async (
-  eventData
-) => {
+const updateSubscriptionFromWebhook = async (eventData) => {
   if (!eventData || !eventData.data) {
-    console.warn(
-      "Paddle webhook has no data."
-    );
+    console.warn("Paddle webhook has no data.");
     return;
   }
 
@@ -21,6 +17,10 @@ const updateSubscriptionFromWebhook = async (
     return;
   }
 
+  // ======================================================
+  // EMAIL
+  // ======================================================
+
   const email =
     data.customer?.email ||
     data.email ||
@@ -28,100 +28,146 @@ const updateSubscriptionFromWebhook = async (
     data.custom_data?.email ||
     null;
 
-  if (!email) {
-    console.warn(
-      "Paddle webhook does not contain customer email."
-    );
-    return;
-  }
+  const normalizedEmail = email
+    ? String(email).trim().toLowerCase()
+    : null;
 
-  const normalizedEmail =
-    String(email)
-      .trim()
-      .toLowerCase();
-
-  let status = "unknown";
-
-  switch (eventData.event_type) {
-    case "subscription.created":
-      status = "created";
-      break;
-
-    case "subscription.activated":
-      status = "active";
-      break;
-
-    case "subscription.updated":
-      status =
-        data.status === "active"
-          ? "active"
-          : data.status || "updated";
-      break;
-
-    case "subscription.canceled":
-      status = "canceled";
-      break;
-
-    case "subscription.paused":
-      status = "paused";
-      break;
-
-    case "subscription.resumed":
-      status = "active";
-      break;
-
-    case "subscription.past_due":
-      status = "past_due";
-      break;
-
-    default:
-      status =
-        data.status || "unknown";
-  }
+  // ======================================================
+  // USER ID
+  // ======================================================
 
   const userId =
     data.custom_data?.user_id ||
     null;
 
+  // ======================================================
+  // PADDLE STATUS
+  // ======================================================
+
+  const paddleStatus =
+    data.status || "unknown";
+
+  // ======================================================
+  // APPLICATION STATUS
+  // ======================================================
+
+  let status = paddleStatus;
+
+  if (paddleStatus === "trialing") {
+    status = "trialing";
+  } else if (paddleStatus === "active") {
+    status = "active";
+  } else if (paddleStatus === "canceled") {
+    status = "canceled";
+  } else if (paddleStatus === "paused") {
+    status = "paused";
+  } else if (paddleStatus === "past_due") {
+    status = "past_due";
+  }
+
+  // ======================================================
+  // PLAN
+  // ======================================================
+
+  const price =
+    data.items?.[0]?.price || null;
+
   const plan =
-    data.items?.[0]?.price?.name ||
-    data.items?.[0]?.price?.description ||
+    price?.name ||
+    price?.description ||
     data.custom_data?.plan ||
     null;
 
+  // ======================================================
+  // PRICE ID
+  // ======================================================
+
   const priceId =
-    data.items?.[0]?.price?.id ||
+    price?.id ||
     data.items?.[0]?.price_id ||
     null;
 
-  const subscription =
-    await Subscription.findOneAndUpdate(
-      {
-        email: normalizedEmail,
-      },
-      {
-        userId,
-        email: normalizedEmail,
-        subscriptionId,
-        plan,
-        priceId,
-        status,
-        updatedAt: new Date(),
-      },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true,
-      }
+  // ======================================================
+  // UPDATE DATA
+  // ======================================================
+
+  const updateData = {
+    subscriptionId,
+    status,
+    plan,
+    priceId,
+    updatedAt: new Date(),
+  };
+
+  if (userId) {
+    updateData.userId = userId;
+  }
+
+  if (normalizedEmail) {
+    updateData.email = normalizedEmail;
+  }
+
+  // ======================================================
+  // SAVE SUBSCRIPTION
+  // ======================================================
+
+  let subscription =
+    await Subscription.findOne({
+      subscriptionId,
+    });
+
+  if (subscription) {
+    Object.assign(
+      subscription,
+      updateData
     );
+
+    subscription =
+      await subscription.save();
+  } else {
+    if (!normalizedEmail) {
+      console.warn(
+        "Cannot create subscription record because customer email is missing."
+      );
+
+      return;
+    }
+
+    subscription =
+      await Subscription.create(
+        updateData
+      );
+  }
 
   console.log(
     "Subscription saved to MongoDB:",
-    subscription
+    {
+      subscriptionId:
+        subscription.subscriptionId,
+
+      email:
+        subscription.email,
+
+      userId:
+        subscription.userId,
+
+      plan:
+        subscription.plan,
+
+      priceId:
+        subscription.priceId,
+
+      status:
+        subscription.status,
+    }
   );
 
   return subscription;
 };
+
+// ========================================================
+// GET SUBSCRIPTION STATUS
+// ========================================================
 
 const getSubscriptionStatus = async (
   req,
@@ -146,7 +192,11 @@ const getSubscriptionStatus = async (
     const subscription =
       await Subscription.findOne({
         email,
-      }).lean();
+      })
+        .sort({
+          updatedAt: -1,
+        })
+        .lean();
 
     const subscribed =
       subscription?.status === "active";
@@ -157,12 +207,13 @@ const getSubscriptionStatus = async (
       status:
         subscription?.status ||
         "inactive",
-      subscription,
+
+      subscription: subscription || null,
     });
   } catch (error) {
     console.error(
       "Subscription status error:",
-      error.message
+      error
     );
 
     return res.status(500).json({
