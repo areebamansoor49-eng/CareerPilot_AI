@@ -75,6 +75,36 @@ interface ActivityItem {
 }
 
 /* =========================================================
+   HELPERS
+========================================================= */
+
+const isOwnedByCurrentUser = (
+  item: {
+    email?: string;
+    userEmail?: string;
+  },
+  currentUser: UserData
+): boolean => {
+  const owner =
+    item.email ||
+    item.userEmail ||
+    "";
+
+  if (!owner) {
+    return true;
+  }
+
+  if (!currentUser.email) {
+    return true;
+  }
+
+  return (
+    owner.toLowerCase() ===
+    currentUser.email.toLowerCase()
+  );
+};
+
+/* =========================================================
    DASHBOARD
 ========================================================= */
 
@@ -154,22 +184,24 @@ function Dashboard() {
       const profile =
         getUserProfile();
 
+      if (!profile) {
+        setProfileData(null);
+        return;
+      }
+
       const hasRealProfileData = Boolean(
-        profile &&
-          (
-            profile.name ||
-            profile.education ||
-            profile.targetCareer ||
-            profile.location ||
-            profile.careerGoal ||
-            profile.experienceLevel ||
-            profile.jobType ||
-            profile.workPreference ||
-            (
-              Array.isArray(profile.skills) &&
-              profile.skills.length > 0
-            )
-          )
+        profile.name ||
+        profile.education ||
+        profile.targetCareer ||
+        profile.location ||
+        profile.careerGoal ||
+        profile.experienceLevel ||
+        profile.jobType ||
+        profile.workPreference ||
+        (
+          Array.isArray(profile.skills) &&
+          profile.skills.length > 0
+        )
       );
 
       if (!hasRealProfileData) {
@@ -177,15 +209,26 @@ function Dashboard() {
         return;
       }
 
-      const profileWithEmail =
+      /*
+       * IMPORTANT:
+       * Do not use:
+       *
+       * interface ProfileWithEmail extends UserProfile {
+       *   email?: string;
+       * }
+       *
+       * because UserProfile.email is already required.
+       *
+       * We only create a local structural type here.
+       */
+      const profileRecord =
         profile as UserProfile & {
-          email?: string;
           userEmail?: string;
         };
 
       const storedProfileEmail =
-        profileWithEmail.email ||
-        profileWithEmail.userEmail ||
+        profileRecord.email ||
+        profileRecord.userEmail ||
         "";
 
       if (
@@ -296,21 +339,11 @@ function Dashboard() {
 
       const filteredApplications =
         parsedApplications.filter(
-          (application: ApplicationData) => {
-            const owner =
-              application.email ||
-              application.userEmail;
-
-            if (!owner) {
-              return true;
-            }
-
-            return (
-              !currentUser.email ||
-              owner.toLowerCase() ===
-                currentUser.email.toLowerCase()
-            );
-          }
+          (application: ApplicationData) =>
+            isOwnedByCurrentUser(
+              application,
+              currentUser
+            )
         );
 
       setApplications(filteredApplications);
@@ -347,54 +380,69 @@ function Dashboard() {
         "savedInternships",
       ];
 
-      let foundData:
-        | OpportunityData[]
-        | null = null;
+      const allOpportunities: OpportunityData[] = [];
 
       for (const key of possibleKeys) {
         const stored =
           localStorage.getItem(key);
 
-        if (!stored) continue;
+        if (!stored) {
+          continue;
+        }
 
         try {
           const parsed =
             JSON.parse(stored);
 
           if (Array.isArray(parsed)) {
-            foundData = parsed;
-            break;
+            allOpportunities.push(
+              ...parsed
+            );
           }
         } catch {
-          // Continue checking other keys
+          // Ignore invalid localStorage data
         }
       }
 
-      if (!foundData) {
+      if (allOpportunities.length === 0) {
         setOpportunities([]);
         return;
       }
 
       const filteredOpportunities =
-        foundData.filter(
-          (opportunity) => {
-            const owner =
-              opportunity.email ||
-              opportunity.userEmail;
+        allOpportunities.filter(
+          (opportunity) =>
+            isOwnedByCurrentUser(
+              opportunity,
+              currentUser
+            )
+        );
 
-            if (!owner) {
-              return true;
-            }
+      /* Remove duplicate opportunities */
+      const uniqueOpportunities =
+        filteredOpportunities.filter(
+          (opportunity, index, array) => {
+            const key =
+              opportunity.id ||
+              `${opportunity.company || ""}-${opportunity.title || ""}`;
 
             return (
-              !currentUser.email ||
-              owner.toLowerCase() ===
-                currentUser.email.toLowerCase()
+              array.findIndex(
+                (item) => {
+                  const itemKey =
+                    item.id ||
+                    `${item.company || ""}-${item.title || ""}`;
+
+                  return itemKey === key;
+                }
+              ) === index
             );
           }
         );
 
-      setOpportunities(filteredOpportunities);
+      setOpportunities(
+        uniqueOpportunities
+      );
     } catch (error) {
       console.error(
         "Failed to load opportunities:",
@@ -575,13 +623,16 @@ function Dashboard() {
       user &&
       !alreadyReviewed
     ) {
-      const timer = setTimeout(() => {
+      const timer = window.setTimeout(() => {
         setShowReviewPopup(true);
       }, 3000);
 
-      return () =>
-        clearTimeout(timer);
+      return () => {
+        window.clearTimeout(timer);
+      };
     }
+
+    return undefined;
   }, []);
 
   /* =======================================================
@@ -632,9 +683,19 @@ function Dashboard() {
     profileData?.name ||
     "Career Explorer";
 
+  const profileRecord =
+    profileData as
+      (
+        UserProfile & {
+          userEmail?: string;
+        }
+      ) |
+      null;
+
   const displayEmail =
     userData?.email ||
-    profileData?.email ||
+    profileRecord?.email ||
+    profileRecord?.userEmail ||
     "";
 
   const firstLetter =
@@ -651,9 +712,9 @@ function Dashboard() {
     resumeData?.uploaded === true;
 
   const resumeScore = hasResume
-    ? typeof resumeData?.atsScore === "number"
+    ? typeof resumeData.atsScore === "number"
       ? Math.round(resumeData.atsScore)
-      : typeof resumeData?.score === "number"
+      : typeof resumeData.score === "number"
       ? Math.round(resumeData.score)
       : 0
     : 0;
@@ -760,16 +821,17 @@ function Dashboard() {
   const hasCareerProfile =
     Boolean(
       profileData &&
-        (
-          profileData.targetCareer ||
-          profileData.education ||
-          profileData.location ||
-          profileData.careerGoal ||
-          profileData.experienceLevel ||
-          profileData.jobType ||
-          profileData.workPreference ||
-          profileSkills.length > 0
-        )
+      (
+        profileData.name ||
+        profileData.targetCareer ||
+        profileData.education ||
+        profileData.location ||
+        profileData.careerGoal ||
+        profileData.experienceLevel ||
+        profileData.jobType ||
+        profileData.workPreference ||
+        profileSkills.length > 0
+      )
     );
 
   const hasDashboardData =
