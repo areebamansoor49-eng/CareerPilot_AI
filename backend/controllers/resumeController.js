@@ -1,6 +1,4 @@
-const fs = require("fs");
-const { PDFParse } = require("pdf-parse");
-
+const pdf = require("pdf-parse");
 const { analyzeResume } = require("../services/resumeAnalyzer");
 
 const uploadResume = async (req, res) => {
@@ -18,19 +16,21 @@ const uploadResume = async (req, res) => {
     console.log("Size:", req.file.size);
     console.log("=================================");
 
-    const pdfBuffer = fs.readFileSync(req.file.path);
+    if (
+      !req.file.buffer ||
+      !Buffer.isBuffer(req.file.buffer)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Uploaded PDF data could not be read.",
+      });
+    }
 
-    const parser = new PDFParse({
-      data: pdfBuffer,
-    });
-
-    const pdfData = await parser.getText();
-
-    await parser.destroy();
+    const pdfData = await pdf(req.file.buffer);
 
     const resumeText = (pdfData.text || "").trim();
 
-    console.log("PDF pages:", pdfData.total);
+    console.log("PDF pages:", pdfData.numpages);
     console.log(
       "Extracted text length:",
       resumeText.length
@@ -44,33 +44,29 @@ const uploadResume = async (req, res) => {
       });
     }
 
-    // =====================================
-    // REAL RESUME ANALYSIS
-    // =====================================
-
     const analysis = analyzeResume(
       resumeText,
-      pdfData.total
+      pdfData.numpages
     );
 
     console.log("========== ATS ANALYSIS ==========");
     console.log("ATS Score:", analysis.atsScore);
     console.log("Word Count:", analysis.wordCount);
     console.log("Skills:", analysis.skills);
-    console.log("Suggestions:", analysis.suggestions);
+    console.log(
+      "Suggestions:",
+      analysis.suggestions
+    );
     console.log("==================================");
 
     return res.status(200).json({
       success: true,
-
       message:
         "Resume uploaded and analyzed successfully.",
 
       file: {
         originalName: req.file.originalname,
-        filename: req.file.filename,
         size: req.file.size,
-        path: `/uploads/${req.file.filename}`,
       },
 
       analysis,

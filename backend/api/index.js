@@ -2,6 +2,7 @@ const app = require("../server");
 const connectDB = require("../config/db");
 
 let dbPromise = null;
+let routesLoaded = false;
 
 module.exports = async (req, res) => {
   try {
@@ -14,6 +15,12 @@ module.exports = async (req, res) => {
 
     await dbPromise;
 
+    // Load all Express routes before handling the Vercel request.
+    if (!routesLoaded) {
+      app.loadRoutes();
+      routesLoaded = true;
+    }
+
     return app(req, res);
   } catch (error) {
     console.error(
@@ -23,7 +30,7 @@ module.exports = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Backend database connection failed.",
+      message: "Backend startup failed.",
       error: error.message,
     });
   }
