@@ -23,7 +23,9 @@ import {
 } from "react";
 
 import { useNavigate } from "react-router-dom";
-
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
 /* =========================================================
    TYPES
 ========================================================= */
@@ -802,7 +804,7 @@ export default function CareerRoadmap() {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/career-roadmap/generate",
+        `${API_URL}/api/career-roadmap/generate`,
         {
           method: "POST",
           headers: {

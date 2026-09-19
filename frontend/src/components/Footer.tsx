@@ -103,6 +103,20 @@ function Footer() {
               >
                 Privacy
               </Link>
+
+              <Link
+                to="/terms"
+                className="block hover:text-blue-400 transition"
+              >
+                Terms of Service
+              </Link>
+
+              <Link
+                to="/refund-policy"
+                className="block hover:text-blue-400 transition"
+              >
+                Refund Policy
+              </Link>
             </div>
           </div>
 
@@ -137,12 +151,26 @@ function Footer() {
             All rights reserved.
           </p>
 
-          <div className="flex gap-6">
+          <div className="flex flex-wrap justify-center gap-6">
             <Link
               to="/privacy"
               className="hover:text-white transition"
             >
               Privacy
+            </Link>
+
+            <Link
+              to="/terms"
+              className="hover:text-white transition"
+            >
+              Terms
+            </Link>
+
+            <Link
+              to="/refund-policy"
+              className="hover:text-white transition"
+            >
+              Refund Policy
             </Link>
 
             <Link

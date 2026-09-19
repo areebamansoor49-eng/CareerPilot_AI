@@ -17,6 +17,10 @@ interface UserData {
   email?: string;
 }
 
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
+
 function ReviewPopup({
   onClose,
 }: ReviewPopupProps) {
@@ -148,7 +152,7 @@ function ReviewPopup({
       // ==================================================
 
       const response = await fetch(
-        "http://localhost:5000/api/reviews",
+        `${API_URL}/api/reviews`,
         {
           method: "POST",
 
@@ -161,7 +165,9 @@ function ReviewPopup({
 
           body: JSON.stringify({
             userEmail:
-              user.email.trim().toLowerCase(),
+              user.email
+                .trim()
+                .toLowerCase(),
 
             userName:
               user.name?.trim() ||
@@ -181,7 +187,8 @@ function ReviewPopup({
       // PARSE RESPONSE
       // ==================================================
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       // ==================================================
       // HANDLE ERROR

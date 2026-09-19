@@ -18,6 +18,10 @@ interface Review {
   createdAt?: string;
 }
 
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
+
 function ReviewSlider() {
   const [reviews, setReviews] =
     useState<Review[]>([]);
@@ -37,7 +41,7 @@ function ReviewSlider() {
       setLoading(true);
 
       const response = await fetch(
-        "http://localhost:5000/api/reviews",
+        `${API_URL}/api/reviews`,
         {
           method: "GET",
           headers: {

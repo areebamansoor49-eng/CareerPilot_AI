@@ -41,6 +41,8 @@ import Community from "./pages/Community";
 import Contact from "./pages/Contact";
 import Documentation from "./pages/Documentation";
 import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
+import RefundPolicy from "./pages/RefundPolicy";
 import Settings from "./pages/Settings";
 
 /* =========================================================
@@ -217,7 +219,7 @@ function App() {
         ================================================= */}
 
         <Route
-          path="/internship-finder"
+          path="/opportunity-finder"
           element={
             <Navigate
               to="/opportunity-finder"
@@ -371,6 +373,23 @@ function App() {
             </PageLayout>
           }
         />
+        <Route
+  path="/terms"
+  element={
+    <PageLayout>
+      <Terms />
+    </PageLayout>
+  }
+/>
+
+<Route
+  path="/refund-policy"
+  element={
+    <PageLayout>
+      <RefundPolicy />
+    </PageLayout>
+  }
+/>
 
         {/* =================================================
             FALLBACK
