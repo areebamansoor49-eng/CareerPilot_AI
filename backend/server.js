@@ -8,18 +8,6 @@ require("dotenv").config();
 
 const connectDB = require("./config/db");
 
-const {
-  updateSubscriptionFromWebhook,
-} = require("./controllers/subscriptionController");
-
-const reviewRoutes = require("./routes/reviewRoutes");
-const subscriptionRoutes = require("./routes/subscriptionRoutes");
-const paymentRoutes = require("./routes/paymentRoutes");
-const resumeRoutes = require("./routes/resumeRoutes");
-const jobRoutes = require("./routes/jobRoutes");
-const linkedinRoutes = require("./routes/linkedinRoutes");
-const careerRoadmapRoutes = require("./routes/careerRoadmapRoutes");
-
 const app = express();
 
 // ========================================================
@@ -143,10 +131,6 @@ app.post(
       const rawBody =
         req.body.toString("utf8");
 
-      // ====================================================
-      // PARSE PADDLE SIGNATURE
-      // ====================================================
-
       const signatureParts = {};
 
       String(signature)
@@ -185,30 +169,18 @@ app.post(
         });
       }
 
-      // ====================================================
-      // VALIDATE TIMESTAMP
-      // ====================================================
-
       const timestampNumber =
         Number(timestamp);
 
       if (
         !Number.isFinite(timestampNumber)
       ) {
-        console.error(
-          "Paddle webhook rejected: invalid timestamp."
-        );
-
         return res.status(400).json({
           success: false,
           message:
             "Invalid Paddle signature timestamp.",
         });
       }
-
-      // ====================================================
-      // PREVENT OLD / REPLAYED WEBHOOKS
-      // ====================================================
 
       const timestampAge =
         Math.abs(
@@ -228,16 +200,8 @@ app.post(
         });
       }
 
-      // ====================================================
-      // CREATE SIGNED PAYLOAD
-      // ====================================================
-
       const signedPayload =
         `${timestamp}:${rawBody}`;
-
-      // ====================================================
-      // CREATE EXPECTED HMAC
-      // ====================================================
 
       const expectedSignature =
         crypto
@@ -263,18 +227,10 @@ app.post(
           "hex"
         );
 
-      // ====================================================
-      // COMPARE SIGNATURES
-      // ====================================================
-
       if (
         expectedBuffer.length !==
         receivedBuffer.length
       ) {
-        console.error(
-          "Paddle webhook rejected: invalid signature."
-        );
-
         return res.status(401).json({
           success: false,
           message:
@@ -289,20 +245,12 @@ app.post(
         );
 
       if (!signatureValid) {
-        console.error(
-          "Paddle webhook rejected: invalid signature."
-        );
-
         return res.status(401).json({
           success: false,
           message:
             "Invalid Paddle webhook signature.",
         });
       }
-
-      // ====================================================
-      // PARSE EVENT
-      // ====================================================
 
       let eventData;
 
@@ -357,16 +305,18 @@ app.post(
         "================================="
       );
 
-      // ====================================================
-      // UPDATE SUBSCRIPTION
-      // ====================================================
-
       if (
         eventType &&
         eventType.startsWith(
           "subscription."
         )
       ) {
+        const {
+          updateSubscriptionFromWebhook,
+        } = require(
+          "./controllers/subscriptionController"
+        );
+
         if (
           typeof updateSubscriptionFromWebhook ===
           "function"
@@ -374,109 +324,14 @@ app.post(
           await updateSubscriptionFromWebhook(
             eventData
           );
-        } else {
-          console.error(
-            "updateSubscriptionFromWebhook is not a function."
-          );
         }
       }
 
-      // ====================================================
-      // EVENT LOGGING
-      // ====================================================
-
-      switch (eventType) {
-        case "subscription.created":
-          console.log(
-            "Paddle subscription created:",
-            eventData.data?.id
-          );
-          break;
-
-        case "subscription.activated":
-          console.log(
-            "Paddle subscription activated:",
-            eventData.data?.id
-          );
-          break;
-
-        case "subscription.updated":
-          console.log(
-            "Paddle subscription updated:",
-            eventData.data?.id
-          );
-          break;
-
-        case "subscription.canceled":
-          console.log(
-            "Paddle subscription canceled:",
-            eventData.data?.id
-          );
-          break;
-
-        case "subscription.past_due":
-          console.log(
-            "Paddle subscription past due:",
-            eventData.data?.id
-          );
-          break;
-
-        case "subscription.paused":
-          console.log(
-            "Paddle subscription paused:",
-            eventData.data?.id
-          );
-          break;
-
-        case "subscription.resumed":
-          console.log(
-            "Paddle subscription resumed:",
-            eventData.data?.id
-          );
-          break;
-
-        case "transaction.paid":
-          console.log(
-            "Paddle transaction paid:",
-            eventData.data?.id
-          );
-          break;
-
-        case "transaction.completed":
-          console.log(
-            "Paddle transaction completed:",
-            eventData.data?.id
-          );
-          break;
-
-        case "transaction.payment_failed":
-          console.log(
-            "Paddle transaction payment failed:",
-            eventData.data?.id
-          );
-          break;
-
-        case "transaction.past_due":
-          console.log(
-            "Paddle transaction past due:",
-            eventData.data?.id
-          );
-          break;
-
-        case "transaction.canceled":
-          console.log(
-            "Paddle transaction canceled:",
-            eventData.data?.id
-          );
-          break;
-
-        default:
-          console.log(
-            `Paddle event received: ${
-              eventType || "UNKNOWN"
-            }`
-          );
-      }
+      console.log(
+        `Paddle event received: ${
+          eventType || "UNKNOWN"
+        }`
+      );
 
       return res.status(200).json({
         success: true,
@@ -486,7 +341,7 @@ app.post(
     } catch (error) {
       console.error(
         "Paddle webhook processing error:",
-        error.message
+        error
       );
 
       return res.status(400).json({
@@ -530,46 +385,8 @@ app.use(
 );
 
 // ========================================================
-// ROUTES
-// ========================================================
-
-app.use(
-  "/api/resume",
-  resumeRoutes
-);
-
-app.use(
-  "/api/jobs",
-  jobRoutes
-);
-
-app.use(
-  "/api/linkedin",
-  linkedinRoutes
-);
-
-app.use(
-  "/api/career-roadmap",
-  careerRoadmapRoutes
-);
-
-app.use(
-  "/api/subscription",
-  subscriptionRoutes
-);
-
-app.use(
-  "/api/payment",
-  paymentRoutes
-);
-
-app.use(
-  "/api/reviews",
-  reviewRoutes
-);
-
-// ========================================================
-// HEALTH CHECK
+// HEALTH CHECKS
+// These are intentionally registered before lazy routes.
 // ========================================================
 
 app.get(
@@ -584,6 +401,9 @@ app.get(
       environment:
         process.env.NODE_ENV ||
         "development",
+
+      frontendUrl:
+        FRONTEND_URL,
 
       linkedinOAuth: Boolean(
         process.env.LINKEDIN_CLIENT_ID &&
@@ -603,10 +423,6 @@ app.get(
   }
 );
 
-// ========================================================
-// API HEALTH CHECK
-// ========================================================
-
 app.get(
   "/api/health",
   (req, res) => {
@@ -619,6 +435,129 @@ app.get(
       timestamp:
         new Date().toISOString(),
     });
+  }
+);
+
+// ========================================================
+// LAZY ROUTE LOADING
+// ========================================================
+
+let routesLoaded = false;
+let routeLoadError = null;
+
+function loadRoutes() {
+  if (routesLoaded) {
+    return;
+  }
+
+  if (routeLoadError) {
+    throw routeLoadError;
+  }
+
+  try {
+    console.log(
+      "Loading CareerPilot backend routes..."
+    );
+
+    const reviewRoutes =
+      require("./routes/reviewRoutes");
+
+    const subscriptionRoutes =
+      require("./routes/subscriptionRoutes");
+
+    const paymentRoutes =
+      require("./routes/paymentRoutes");
+
+    const resumeRoutes =
+      require("./routes/resumeRoutes");
+
+    const jobRoutes =
+      require("./routes/jobRoutes");
+
+    const linkedinRoutes =
+      require("./routes/linkedinRoutes");
+
+    const careerRoadmapRoutes =
+      require("./routes/careerRoadmapRoutes");
+
+    app.use(
+      "/api/resume",
+      resumeRoutes
+    );
+
+    app.use(
+      "/api/jobs",
+      jobRoutes
+    );
+
+    app.use(
+      "/api/linkedin",
+      linkedinRoutes
+    );
+
+    app.use(
+      "/api/career-roadmap",
+      careerRoadmapRoutes
+    );
+
+    app.use(
+      "/api/subscription",
+      subscriptionRoutes
+    );
+
+    app.use(
+      "/api/payment",
+      paymentRoutes
+    );
+
+    app.use(
+      "/api/reviews",
+      reviewRoutes
+    );
+
+    routesLoaded = true;
+
+    console.log(
+      "CareerPilot backend routes loaded successfully."
+    );
+  } catch (error) {
+    routeLoadError = error;
+
+    console.error(
+      "Failed to load backend routes:",
+      error
+    );
+
+    throw error;
+  }
+}
+
+// ========================================================
+// LAZY ROUTE INITIALIZER
+// ========================================================
+
+app.use(
+  (req, res, next) => {
+    const isHealthRoute =
+      req.path === "/" ||
+      req.path === "/api/health";
+
+    const isPaddleWebhook =
+      req.path === "/api/paddle/webhook";
+
+    if (
+      isHealthRoute ||
+      isPaddleWebhook
+    ) {
+      return next();
+    }
+
+    try {
+      loadRoutes();
+      return next();
+    } catch (error) {
+      return next(error);
+    }
   }
 );
 
@@ -645,7 +584,7 @@ app.use(
   (err, req, res, next) => {
     console.error(
       "Backend error:",
-      err.message
+      err
     );
 
     if (
@@ -679,6 +618,8 @@ app.use(
 if (require.main === module) {
   connectDB()
     .then(() => {
+      loadRoutes();
+
       app.listen(
         PORT,
         "0.0.0.0",
@@ -742,7 +683,7 @@ if (require.main === module) {
     .catch((error) => {
       console.error(
         "Failed to start backend:",
-        error.message
+        error
       );
 
       process.exit(1);
