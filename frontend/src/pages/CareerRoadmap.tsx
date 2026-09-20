@@ -23,9 +23,14 @@ import {
 } from "react";
 
 import { useNavigate } from "react-router-dom";
+
+import { getSubscriptionStatus } from "../utils/subscription";
+import SubscriptionModal from "../components/SubscriptionModal";
+
 const API_URL =
   import.meta.env.VITE_API_URL ||
   "http://localhost:5000";
+
 /* =========================================================
    TYPES
 ========================================================= */
@@ -713,17 +718,24 @@ export default function CareerRoadmap() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  /*
-    IMPORTANT:
-    Roadmap starts as null.
-    So before Generate button is clicked,
-    no roadmap/information section will appear.
-  */
   const [roadmap, setRoadmap] =
     useState<RoadmapData | null>(null);
 
   const [roadmapSource, setRoadmapSource] =
     useState<string>("");
+
+  /* =======================================================
+     SUBSCRIPTION STATE
+  ======================================================= */
+
+  const [checkingSubscription, setCheckingSubscription] =
+    useState(false);
+
+  const [isSubscribed, setIsSubscribed] =
+    useState(false);
+
+  const [showSubscriptionModal, setShowSubscriptionModal] =
+    useState(false);
 
   /* =======================================================
      FORM HELPERS
@@ -737,6 +749,13 @@ export default function CareerRoadmap() {
       ...previous,
       [field]: value,
     }));
+
+    setRoadmap(null);
+    setRoadmapSource("");
+    setShowSubscriptionModal(false);
+    setIsSubscribed(false);
+    setSuccess("");
+    setError("");
   };
 
   const parsedSkills = useMemo(() => {
@@ -754,6 +773,46 @@ export default function CareerRoadmap() {
   }, [form.interests]);
 
   /* =======================================================
+     CHECK SUBSCRIPTION
+  ======================================================= */
+
+  const checkRoadmapSubscription = async () => {
+    setCheckingSubscription(true);
+
+    try {
+      const subscription =
+        await getSubscriptionStatus();
+
+      const subscribed = Boolean(
+        subscription.success &&
+        subscription.subscribed
+      );
+
+      setIsSubscribed(subscribed);
+
+      if (!subscribed) {
+        setShowSubscriptionModal(true);
+      } else {
+        setShowSubscriptionModal(false);
+      }
+
+      return subscribed;
+    } catch (subscriptionError) {
+      console.error(
+        "Career Roadmap subscription check failed:",
+        subscriptionError
+      );
+
+      setIsSubscribed(false);
+      setShowSubscriptionModal(true);
+
+      return false;
+    } finally {
+      setCheckingSubscription(false);
+    }
+  };
+
+  /* =======================================================
      GENERATE ROADMAP
   ======================================================= */
 
@@ -764,6 +823,7 @@ export default function CareerRoadmap() {
 
     setError("");
     setSuccess("");
+    setShowSubscriptionModal(false);
 
     if (!form.careerField) {
       setError(
@@ -856,11 +916,6 @@ export default function CareerRoadmap() {
       const generatedRoadmap =
         data.roadmap as RoadmapData;
 
-      /*
-        Roadmap is ONLY set here.
-        Therefore it will ONLY appear after
-        successful Generate button click.
-      */
       setRoadmap(generatedRoadmap);
 
       const source =
@@ -870,11 +925,6 @@ export default function CareerRoadmap() {
 
       setRoadmapSource(source);
 
-      /*
-        Save it for later if needed,
-        but we DO NOT automatically load it
-        when this page opens.
-      */
       sessionStorage.setItem(
         STORAGE_KEY,
         JSON.stringify(generatedRoadmap)
@@ -889,6 +939,8 @@ export default function CareerRoadmap() {
         data.message ||
           "Your personalized career roadmap has been generated successfully."
       );
+
+      await checkRoadmapSubscription();
 
       window.setTimeout(() => {
         document
@@ -923,6 +975,43 @@ export default function CareerRoadmap() {
   };
 
   /* =======================================================
+     SUBSCRIPTION MODAL CLOSE
+  ======================================================= */
+
+  const handleSubscriptionClose = async () => {
+    setShowSubscriptionModal(false);
+    setCheckingSubscription(true);
+
+    try {
+      const subscription =
+        await getSubscriptionStatus();
+
+      const subscribed = Boolean(
+        subscription.success &&
+        subscription.subscribed
+      );
+
+      setIsSubscribed(subscribed);
+
+      if (subscribed) {
+        setShowSubscriptionModal(false);
+      } else {
+        setShowSubscriptionModal(false);
+      }
+    } catch (subscriptionError) {
+      console.error(
+        "Career Roadmap subscription re-check failed:",
+        subscriptionError
+      );
+
+      setIsSubscribed(false);
+      setShowSubscriptionModal(false);
+    } finally {
+      setCheckingSubscription(false);
+    }
+  };
+
+  /* =======================================================
      CLEAR ROADMAP
   ======================================================= */
 
@@ -936,6 +1025,8 @@ export default function CareerRoadmap() {
     setRoadmapSource("");
     setSuccess("");
     setError("");
+    setIsSubscribed(false);
+    setShowSubscriptionModal(false);
 
     window.scrollTo({
       top: 0,
@@ -955,17 +1046,6 @@ export default function CareerRoadmap() {
     roadmap?.skillAssessment
   );
 
-   /*
-    CURRENT STRENGTHS LOGIC
-
-    Priority:
-    1. AI-generated current strengths
-    2. Alternative AI strength fields
-    3. User's Current Skills from the form
-
-    This prevents "Current Strengths" from appearing empty
-    when the AI response does not explicitly return strengths.
-  */
   const aiStrengths =
     getStringArray(
       skillAssessment.currentStrengths
@@ -995,15 +1075,10 @@ export default function CareerRoadmap() {
       ? alternativeStrengths
       : parsedSkills;
 
-  /*
-    True when strengths are coming directly from the
-    user's Current Skills field instead of AI analysis.
-  */
   const strengthsAreFromProfile =
     aiStrengths.length === 0 &&
     alternativeStrengths.length === 0 &&
     parsedSkills.length > 0;
-
 
   const skillGaps =
     getStringArray(
@@ -1121,10 +1196,7 @@ export default function CareerRoadmap() {
       =================================================== */}
 
       <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-
-        {/* =================================================
-            ALERTS
-        ================================================= */}
+        {/* ALERTS */}
 
         {success && (
           <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-300">
@@ -1158,9 +1230,7 @@ export default function CareerRoadmap() {
           </div>
         )}
 
-        {/* =================================================
-            FORM
-        ================================================= */}
+        {/* FORM */}
 
         <section
           id="roadmap-form"
@@ -1183,7 +1253,6 @@ export default function CareerRoadmap() {
             className="rounded-3xl border border-white/10 bg-[#0b1224] p-6 shadow-xl shadow-black/20 sm:p-8"
           >
             <div className="grid gap-6 md:grid-cols-2">
-
               {/* Career Field */}
               <div>
                 <label
@@ -1504,14 +1573,12 @@ export default function CareerRoadmap() {
         </section>
 
         {/* =================================================
-            EVERYTHING BELOW ONLY AFTER ROADMAP IS GENERATED
+            GENERATED ROADMAP
         ================================================= */}
 
         {roadmap && (
           <>
-            {/* =================================================
-                PROCESS
-            ================================================= */}
+            {/* PROCESS */}
 
             <section className="mb-12">
               <div className="grid gap-4 md:grid-cols-4">
@@ -1546,15 +1613,14 @@ export default function CareerRoadmap() {
               </div>
             </section>
 
-            {/* =================================================
-                GENERATED ROADMAP
-            ================================================= */}
+            {/* GENERATED ROADMAP */}
 
             <section
               id="generated-roadmap"
               className="scroll-mt-8"
             >
-              {/* Roadmap Header */}
+              {/* ROADMAP HEADER */}
+
               <div className="mb-8 rounded-3xl border border-blue-500/20 bg-gradient-to-br from-[#07142f] via-[#0a1733] to-[#03101f] p-6 text-white shadow-xl shadow-blue-950/30 sm:p-8">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                   <div>
@@ -1574,6 +1640,13 @@ export default function CareerRoadmap() {
                       path from your current level toward
                       your target career.
                     </p>
+
+                    {!isSubscribed && (
+                      <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300">
+                        <FaLockIcon />
+                        Preview mode — subscribe to unlock the full roadmap
+                      </div>
+                    )}
                   </div>
 
                   <button
@@ -1588,558 +1661,965 @@ export default function CareerRoadmap() {
               </div>
 
               {/* =================================================
-                  CAREER OVERVIEW
+                  SUBSCRIBED USER
               ================================================= */}
 
-              {careerOverview && (
-                <section className="mb-10">
-                  <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
-                    <SectionHeader
-                      icon={FaBullseye}
-                      title="Career Overview"
-                      description="Your personalized career direction based on your profile."
-                    />
+              {isSubscribed ? (
+                <>
+                  {/* CAREER OVERVIEW */}
 
-                    <p className="text-sm leading-7 text-blue-100">
-                      {careerOverview}
-                    </p>
-                  </div>
-                </section>
-              )}
-
-              {/* =================================================
-                  SKILL ASSESSMENT
-              ================================================= */}
-
-              {(strengths.length > 0 ||
-                skillGaps.length > 0 ||
-                prioritySkills.length > 0) && (
-                <section className="mb-10">
-                  <SectionHeader
-                    icon={FaTools}
-                    title="Skill Assessment"
-                    description="Understand what you already have and what to prioritize next."
-                  />
-
-                  <div className="grid gap-5 md:grid-cols-3">
-                                       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-6">
-                      <div className="mb-4 flex items-start justify-between gap-3">
-                        <div>
-                          <h3 className="font-bold text-emerald-300">
-                            Current Strengths
-                          </h3>
-
-                          <p className="mt-1 text-xs leading-5 text-emerald-200/60">
-                            {strengthsAreFromProfile
-                              ? "Based on the skills you provided."
-                              : "Skills identified as strengths for your career direction."}
-                          </p>
-                        </div>
-
-                        <FaCheckCircle className="mt-1 shrink-0 text-emerald-400" />
-                      </div>
-
-                      <ValueList
-                        value={strengths}
-                        emptyText="Add your current skills above to identify your strengths."
-                      />
-
-                      {strengthsAreFromProfile && (
-                        <div className="mt-4 rounded-xl border border-emerald-400/10 bg-emerald-400/5 p-3">
-                          <p className="text-xs leading-5 text-emerald-200/70">
-                            These strengths are derived from your
-                            Current Skills. As your profile grows,
-                            regenerate the roadmap to get an updated
-                            AI-based assessment.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-
-                    <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-6">
-                      <h3 className="mb-4 font-bold text-amber-300">
-                        Skill Gaps
-                      </h3>
-
-                      <ValueList
-                        value={skillGaps}
-                        emptyText="No major gaps identified."
-                      />
-                    </div>
-
-                    <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
-                      <h3 className="mb-4 font-bold text-blue-300">
-                        Priority Skills
-                      </h3>
-
-                      <ValueList
-                        value={prioritySkills}
-                        emptyText="No priority skills identified."
-                      />
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              {/* =================================================
-                  ROADMAP PHASES
-              ================================================= */}
-
-              {phases.length > 0 && (
-                <section className="mb-10">
-                  <SectionHeader
-                    icon={FaRoad}
-                    title="Roadmap Phases"
-                    description="Follow these phases in sequence and build your skills progressively."
-                  />
-
-                  <div className="space-y-5">
-                    {phases.map((phase, index) => (
-                      <RoadmapPhaseCard
-                        key={`phase-${index}`}
-                        phase={phase}
-                        index={index}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* =================================================
-                  LEARNING PLAN
-              ================================================= */}
-
-              {Object.keys(learningPlan).length >
-                0 && (
-                <section className="mb-10">
-                  <SectionHeader
-                    icon={FaGraduationCap}
-                    title="Weekly Learning Plan"
-                    description="Use your available time consistently to make progress."
-                  />
-
-                  <div className="rounded-2xl border border-white/10 bg-[#0b1224] p-6 shadow-lg shadow-black/20">
-                    <ObjectDetails
-                      value={learningPlan}
-                    />
-                  </div>
-                </section>
-              )}
-
-              {/* =================================================
-                  PROJECTS
-              ================================================= */}
-
-              {projects.length > 0 && (
-                <section className="mb-10">
-                  <SectionHeader
-                    icon={FaBriefcase}
-                    title="Projects & Experience"
-                    description="Build practical proof of your skills instead of relying only on courses."
-                  />
-
-                  <div className="grid gap-5 md:grid-cols-2">
-                    {projects.map(
-                      (project, index) => (
-                        <ProjectCard
-                          key={`project-${index}`}
-                          project={project}
-                          index={index}
+                  {careerOverview && (
+                    <section className="mb-10">
+                      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
+                        <SectionHeader
+                          icon={FaBullseye}
+                          title="Career Overview"
+                          description="Your personalized career direction based on your profile."
                         />
-                      )
-                    )}
-                  </div>
-                </section>
-              )}
 
-              {/* =================================================
-                  CERTIFICATIONS
-              ================================================= */}
-
-              {certifications.length > 0 && (
-                <section className="mb-10">
-                  <SectionHeader
-                    icon={FaCertificate}
-                    title="Recommended Certifications"
-                    description="Certifications that can complement your practical experience."
-                  />
-
-                  <div className="grid gap-5 md:grid-cols-2">
-                    {certifications.map(
-                      (
-                        certification,
-                        index
-                      ) => (
-                        <CertificationCard
-                          key={`certification-${index}`}
-                          certification={
-                            certification
-                          }
-                          index={index}
-                        />
-                      )
-                    )}
-                  </div>
-                </section>
-              )}
-
-              {/* =================================================
-                  CAREER PREPARATION
-              ================================================= */}
-
-              {Object.keys(
-                careerPreparation
-              ).length > 0 && (
-                <section className="mb-10">
-                  <SectionHeader
-                    icon={FaRocket}
-                    title="Career Preparation"
-                    description="Turn your learning into a job-ready professional profile."
-                  />
-
-                  <div className="grid gap-5 md:grid-cols-2">
-                    {Object.entries(
-                      careerPreparation
-                    ).map(
-                      ([key, value]) => (
-                        <div
-                          key={key}
-                          className="rounded-2xl border border-white/10 bg-[#0b1224] p-6 shadow-lg shadow-black/20"
-                        >
-                          <h3 className="mb-4 flex items-center gap-2 font-bold text-white">
-                            <FaCheckCircle className="text-blue-400" />
-                            {prettyLabel(key)}
-                          </h3>
-
-                          {Array.isArray(
-                            value
-                          ) ? (
-                            <ValueList
-                              value={value}
-                            />
-                          ) : isObject(
-                              value
-                            ) ? (
-                            <ObjectDetails
-                              value={value}
-                            />
-                          ) : (
-                            <p className="text-sm leading-6 text-slate-400">
-                              {getString(
-                                value
-                              )}
-                            </p>
-                          )}
-                        </div>
-                      )
-                    )}
-                  </div>
-                </section>
-              )}
-
-              {/* =================================================
-                  MILESTONES
-              ================================================= */}
-
-              {milestones.length > 0 && (
-                <section className="mb-10">
-                  <SectionHeader
-                    icon={FaTrophy}
-                    title="Career Milestones"
-                    description="Use these checkpoints to measure your progress."
-                  />
-
-                  <div className="space-y-4">
-                    {milestones.map(
-                      (milestone, index) => {
-                        if (
-                          !isObject(
-                            milestone
-                          )
-                        ) {
-                          return (
-                            <div
-                              key={`milestone-${index}`}
-                              className="flex gap-4 rounded-2xl border border-white/10 bg-[#0b1224] p-5 shadow-lg shadow-black/20"
-                            >
-                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-amber-500/20 bg-amber-500/10 text-amber-400">
-                                <FaTrophy />
-                              </div>
-
-                              <div>
-                                <h3 className="font-bold text-white">
-                                  Milestone{" "}
-                                  {index + 1}
-                                </h3>
-
-                                <p className="mt-2 text-sm leading-6 text-slate-400">
-                                  {getString(
-                                    milestone
-                                  )}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        }
-
-                        const title =
-                          getString(
-                            milestone.milestone
-                          ) ||
-                          getString(
-                            milestone.title
-                          ) ||
-                          getString(
-                            milestone.name
-                          ) ||
-                          `Milestone ${
-                            index + 1
-                          }`;
-
-                        const timeframe =
-                          getString(
-                            milestone.timeframe
-                          ) ||
-                          getString(
-                            milestone.duration
-                          );
-
-                        const criteria =
-                          getStringArray(
-                            milestone.successCriteria
-                          );
-
-                        return (
-                          <div
-                            key={`milestone-${index}`}
-                            className="flex gap-4 rounded-2xl border border-white/10 bg-[#0b1224] p-5 shadow-lg shadow-black/20"
-                          >
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-amber-500/20 bg-amber-500/10 text-amber-400">
-                              <FaTrophy />
-                            </div>
-
-                            <div className="flex-1">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <h3 className="font-bold text-white">
-                                  {title}
-                                </h3>
-
-                                {timeframe && (
-                                  <span className="rounded-full border border-white/10 bg-[#050b18] px-3 py-1 text-xs font-semibold text-slate-400">
-                                    {timeframe}
-                                  </span>
-                                )}
-                              </div>
-
-                              {criteria.length >
-                              0 ? (
-                                <div className="mt-3">
-                                  <ValueList
-                                    value={
-                                      criteria
-                                    }
-                                  />
-                                </div>
-                              ) : (
-                                <div className="mt-3">
-                                  <ObjectDetails
-                                    value={
-                                      milestone
-                                    }
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      }
-                    )}
-                  </div>
-                </section>
-              )}
-
-              {/* =================================================
-                  NEXT STEPS
-              ================================================= */}
-
-              {nextSteps.length > 0 && (
-                <section className="mb-10">
-                  <div className="rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 p-6 text-white shadow-xl shadow-blue-950/30 sm:p-8">
-                    <div className="mb-6 flex items-start gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15">
-                        <FaLightbulb />
-                      </div>
-
-                      <div>
-                        <h2 className="text-2xl font-bold">
-                          Your Next Steps
-                        </h2>
-
-                        <p className="mt-1 text-sm leading-6 text-blue-100">
-                          Start with these actions
-                          instead of trying to do
-                          everything at once.
+                        <p className="text-sm leading-7 text-blue-100">
+                          {careerOverview}
                         </p>
                       </div>
-                    </div>
+                    </section>
+                  )}
 
-                    <div className="grid gap-3">
-                      {nextSteps.map(
-                        (step, index) => (
-                          <div
-                            key={`${step}-${index}`}
-                            className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/10 p-4"
-                          >
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold text-blue-600">
-                              {index + 1}
-                            </span>
+                  {/* SKILL ASSESSMENT */}
 
-                            <p className="text-sm leading-6 text-white">
-                              {step}
+                  {(strengths.length > 0 ||
+                    skillGaps.length > 0 ||
+                    prioritySkills.length > 0) && (
+                    <section className="mb-10">
+                      <SectionHeader
+                        icon={FaTools}
+                        title="Skill Assessment"
+                        description="Understand what you already have and what to prioritize next."
+                      />
+
+                      <div className="grid gap-5 md:grid-cols-3">
+                        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-6">
+                          <div className="mb-4 flex items-start justify-between gap-3">
+                            <div>
+                              <h3 className="font-bold text-emerald-300">
+                                Current Strengths
+                              </h3>
+
+                              <p className="mt-1 text-xs leading-5 text-emerald-200/60">
+                                {strengthsAreFromProfile
+                                  ? "Based on the skills you provided."
+                                  : "Skills identified as strengths for your career direction."}
+                              </p>
+                            </div>
+
+                            <FaCheckCircle className="mt-1 shrink-0 text-emerald-400" />
+                          </div>
+
+                          <ValueList
+                            value={strengths}
+                            emptyText="Add your current skills above to identify your strengths."
+                          />
+
+                          {strengthsAreFromProfile && (
+                            <div className="mt-4 rounded-xl border border-emerald-400/10 bg-emerald-400/5 p-3">
+                              <p className="text-xs leading-5 text-emerald-200/70">
+                                These strengths are derived from your
+                                Current Skills. As your profile grows,
+                                regenerate the roadmap to get an updated
+                                AI-based assessment.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-6">
+                          <h3 className="mb-4 font-bold text-amber-300">
+                            Skill Gaps
+                          </h3>
+
+                          <ValueList
+                            value={skillGaps}
+                            emptyText="No major gaps identified."
+                          />
+                        </div>
+
+                        <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
+                          <h3 className="mb-4 font-bold text-blue-300">
+                            Priority Skills
+                          </h3>
+
+                          <ValueList
+                            value={prioritySkills}
+                            emptyText="No priority skills identified."
+                          />
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
+                  {/* ROADMAP PHASES */}
+
+                  {phases.length > 0 && (
+                    <section className="mb-10">
+                      <SectionHeader
+                        icon={FaRoad}
+                        title="Roadmap Phases"
+                        description="Follow these phases in sequence and build your skills progressively."
+                      />
+
+                      <div className="space-y-5">
+                        {phases.map(
+                          (phase, index) => (
+                            <RoadmapPhaseCard
+                              key={`phase-${index}`}
+                              phase={phase}
+                              index={index}
+                            />
+                          )
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* LEARNING PLAN */}
+
+                  {Object.keys(learningPlan).length >
+                    0 && (
+                    <section className="mb-10">
+                      <SectionHeader
+                        icon={FaGraduationCap}
+                        title="Weekly Learning Plan"
+                        description="Use your available time consistently to make progress."
+                      />
+
+                      <div className="rounded-2xl border border-white/10 bg-[#0b1224] p-6 shadow-lg shadow-black/20">
+                        <ObjectDetails
+                          value={learningPlan}
+                        />
+                      </div>
+                    </section>
+                  )}
+
+                  {/* PROJECTS */}
+
+                  {projects.length > 0 && (
+                    <section className="mb-10">
+                      <SectionHeader
+                        icon={FaBriefcase}
+                        title="Projects & Experience"
+                        description="Build practical proof of your skills instead of relying only on courses."
+                      />
+
+                      <div className="grid gap-5 md:grid-cols-2">
+                        {projects.map(
+                          (project, index) => (
+                            <ProjectCard
+                              key={`project-${index}`}
+                              project={project}
+                              index={index}
+                            />
+                          )
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* CERTIFICATIONS */}
+
+                  {certifications.length > 0 && (
+                    <section className="mb-10">
+                      <SectionHeader
+                        icon={FaCertificate}
+                        title="Recommended Certifications"
+                        description="Certifications that can complement your practical experience."
+                      />
+
+                      <div className="grid gap-5 md:grid-cols-2">
+                        {certifications.map(
+                          (
+                            certification,
+                            index
+                          ) => (
+                            <CertificationCard
+                              key={`certification-${index}`}
+                              certification={
+                                certification
+                              }
+                              index={index}
+                            />
+                          )
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* CAREER PREPARATION */}
+
+                  {Object.keys(
+                    careerPreparation
+                  ).length > 0 && (
+                    <section className="mb-10">
+                      <SectionHeader
+                        icon={FaRocket}
+                        title="Career Preparation"
+                        description="Turn your learning into a job-ready professional profile."
+                      />
+
+                      <div className="grid gap-5 md:grid-cols-2">
+                        {Object.entries(
+                          careerPreparation
+                        ).map(
+                          ([key, value]) => (
+                            <div
+                              key={key}
+                              className="rounded-2xl border border-white/10 bg-[#0b1224] p-6 shadow-lg shadow-black/20"
+                            >
+                              <h3 className="mb-4 flex items-center gap-2 font-bold text-white">
+                                <FaCheckCircle className="text-blue-400" />
+                                {prettyLabel(key)}
+                              </h3>
+
+                              {Array.isArray(
+                                value
+                              ) ? (
+                                <ValueList
+                                  value={value}
+                                />
+                              ) : isObject(
+                                  value
+                                ) ? (
+                                <ObjectDetails
+                                  value={value}
+                                />
+                              ) : (
+                                <p className="text-sm leading-6 text-slate-400">
+                                  {getString(
+                                    value
+                                  )}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* MILESTONES */}
+
+                  {milestones.length > 0 && (
+                    <section className="mb-10">
+                      <SectionHeader
+                        icon={FaTrophy}
+                        title="Career Milestones"
+                        description="Use these checkpoints to measure your progress."
+                      />
+
+                      <div className="space-y-4">
+                        {milestones.map(
+                          (milestone, index) => {
+                            if (
+                              !isObject(
+                                milestone
+                              )
+                            ) {
+                              return (
+                                <div
+                                  key={`milestone-${index}`}
+                                  className="flex gap-4 rounded-2xl border border-white/10 bg-[#0b1224] p-5 shadow-lg shadow-black/20"
+                                >
+                                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-amber-500/20 bg-amber-500/10 text-amber-400">
+                                    <FaTrophy />
+                                  </div>
+
+                                  <div>
+                                    <h3 className="font-bold text-white">
+                                      Milestone{" "}
+                                      {index + 1}
+                                    </h3>
+
+                                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                                      {getString(
+                                        milestone
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            const title =
+                              getString(
+                                milestone.milestone
+                              ) ||
+                              getString(
+                                milestone.title
+                              ) ||
+                              getString(
+                                milestone.name
+                              ) ||
+                              `Milestone ${
+                                index + 1
+                              }`;
+
+                            const timeframe =
+                              getString(
+                                milestone.timeframe
+                              ) ||
+                              getString(
+                                milestone.duration
+                              );
+
+                            const criteria =
+                              getStringArray(
+                                milestone.successCriteria
+                              );
+
+                            return (
+                              <div
+                                key={`milestone-${index}`}
+                                className="flex gap-4 rounded-2xl border border-white/10 bg-[#0b1224] p-5 shadow-lg shadow-black/20"
+                              >
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-amber-500/20 bg-amber-500/10 text-amber-400">
+                                  <FaTrophy />
+                                </div>
+
+                                <div className="flex-1">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 className="font-bold text-white">
+                                      {title}
+                                    </h3>
+
+                                    {timeframe && (
+                                      <span className="rounded-full border border-white/10 bg-[#050b18] px-3 py-1 text-xs font-semibold text-slate-400">
+                                        {timeframe}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {criteria.length >
+                                  0 ? (
+                                    <div className="mt-3">
+                                      <ValueList
+                                        value={
+                                          criteria
+                                        }
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="mt-3">
+                                      <ObjectDetails
+                                        value={
+                                          milestone
+                                        }
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+                        )}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* NEXT STEPS */}
+
+                  {nextSteps.length > 0 && (
+                    <section className="mb-10">
+                      <div className="rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-700 via-blue-600 to-cyan-500 p-6 text-white shadow-xl shadow-blue-950/30 sm:p-8">
+                        <div className="mb-6 flex items-start gap-4">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                            <FaLightbulb />
+                          </div>
+
+                          <div>
+                            <h2 className="text-2xl font-bold">
+                              Your Next Steps
+                            </h2>
+
+                            <p className="mt-1 text-sm leading-6 text-blue-100">
+                              Start with these actions
+                              instead of trying to do
+                              everything at once.
                             </p>
                           </div>
-                        )
-                      )}
+                        </div>
+
+                        <div className="grid gap-3">
+                          {nextSteps.map(
+                            (step, index) => (
+                              <div
+                                key={`${step}-${index}`}
+                                className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/10 p-4"
+                              >
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs font-bold text-blue-600">
+                                  {index + 1}
+                                </span>
+
+                                <p className="text-sm leading-6 text-white">
+                                  {step}
+                                </p>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+
+                  {/* UNKNOWN FALLBACK */}
+
+                  {!hasStructuredRoadmap && (
+                    <section className="mb-10">
+                      <div className="rounded-2xl border border-white/10 bg-[#0b1224] p-6 shadow-lg shadow-black/20">
+                        <SectionHeader
+                          icon={FaRoad}
+                          title="Your Roadmap"
+                          description="Your personalized roadmap has been generated successfully."
+                        />
+
+                        <ObjectDetails
+                          value={roadmap}
+                        />
+                      </div>
+                    </section>
+                  )}
+
+                  {/* GENERATE AGAIN */}
+
+                  <div className="mb-12 flex flex-col items-center justify-center rounded-3xl border border-white/10 bg-[#0b1224] p-8 text-center shadow-xl shadow-black/20">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-blue-500/20 bg-blue-500/10 text-blue-400">
+                      <FaRocket />
                     </div>
-                  </div>
-                </section>
-              )}
 
-              {/* =================================================
-                  UNKNOWN / GENERIC ROADMAP FALLBACK
-              ================================================= */}
+                    <h3 className="text-xl font-bold text-white">
+                      Want to refine your career direction?
+                    </h3>
 
-              {!hasStructuredRoadmap && (
-                <section className="mb-10">
-                  <div className="rounded-2xl border border-white/10 bg-[#0b1224] p-6 shadow-lg shadow-black/20">
-                    <SectionHeader
-                      icon={FaRoad}
-                      title="Your Roadmap"
-                      description="Your personalized roadmap has been generated successfully."
-                    />
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
+                      Update your profile information and
+                      generate a new roadmap whenever your
+                      goals, skills or experience change.
+                    </p>
 
-                    <ObjectDetails
-                      value={roadmap}
-                    />
-                  </div>
-                </section>
-              )}
-
-              {/* =================================================
-                  GENERATE AGAIN
-              ================================================= */}
-
-              <div className="mb-12 flex flex-col items-center justify-center rounded-3xl border border-white/10 bg-[#0b1224] p-8 text-center shadow-xl shadow-black/20">
-                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-blue-500/20 bg-blue-500/10 text-blue-400">
-                  <FaRocket />
-                </div>
-
-                <h3 className="text-xl font-bold text-white">
-                  Want to refine your career direction?
-                </h3>
-
-                <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
-                  Update your profile information and
-                  generate a new roadmap whenever your
-                  goals, skills or experience change.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    document
-                      .getElementById(
-                        "roadmap-form"
-                      )
-                      ?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-                      });
-                  }}
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:from-blue-500 hover:to-cyan-400"
-                >
-                  Generate Updated Roadmap
-                  <FaArrowRight />
-                </button>
-              </div>
-            </section>
-
-            {/* =================================================
-                INFORMATION SECTION
-                ONLY VISIBLE AFTER GENERATION
-            ================================================= */}
-
-            <section className="rounded-3xl border border-white/10 bg-[#0b1224] p-6 shadow-xl shadow-black/20 sm:p-8">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-white">
-                  What Your Career Roadmap Includes
-                </h2>
-
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-                  CareerPilot turns your profile into an
-                  actionable career development plan
-                  rather than giving you generic career
-                  advice.
-                </p>
-              </div>
-
-              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-                {[
-                  {
-                    icon: FaBullseye,
-                    title: "Career Direction",
-                    description:
-                      "A clear direction based on your target role and current position.",
-                  },
-                  {
-                    icon: FaTools,
-                    title: "Skill Development",
-                    description:
-                      "Identify important skills and prioritize what to learn next.",
-                  },
-                  {
-                    icon: FaBriefcase,
-                    title: "Real Projects",
-                    description:
-                      "Build practical projects that demonstrate your capabilities.",
-                  },
-                  {
-                    icon: FaRocket,
-                    title: "Career Preparation",
-                    description:
-                      "Prepare your resume, portfolio, interviews and job search strategy.",
-                  },
-                ].map((item) => {
-                  const Icon = item.icon;
-
-                  return (
-                    <div
-                      key={item.title}
-                      className="rounded-2xl border border-white/5 bg-[#050b18] p-5"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        document
+                          .getElementById(
+                            "roadmap-form"
+                          )
+                          ?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                      }}
+                      className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:from-blue-500 hover:to-cyan-400"
                     >
-                      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
-                        <Icon />
+                      Generate Updated Roadmap
+                      <FaArrowRight />
+                    </button>
+                  </div>
+                </>
+              ) : (
+                /* =================================================
+                   UNSUBSCRIBED PREVIEW
+                ================================================= */
+
+                <>
+                  {/* SMALL PREVIEW */}
+
+                  <section className="mb-8">
+                    <div className="mb-4 flex items-center justify-between">
+                      <div>
+                        <h2 className="text-xl font-bold text-white">
+                          Roadmap Preview
+                        </h2>
+
+                        <p className="mt-1 text-sm text-slate-400">
+                          Here is a small preview of your personalized roadmap.
+                        </p>
                       </div>
 
-                      <h3 className="font-bold text-white">
-                        {item.title}
-                      </h3>
-
-                      <p className="mt-2 text-sm leading-6 text-slate-400">
-                        {item.description}
-                      </p>
+                      {checkingSubscription && (
+                        <span className="text-xs font-semibold text-slate-500">
+                          Checking subscription...
+                        </span>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
+
+                    {/* CAREER OVERVIEW PREVIEW */}
+
+                    {careerOverview && (
+                      <div className="mb-5 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
+                        <SectionHeader
+                          icon={FaBullseye}
+                          title="Career Overview"
+                          description="A preview of your personalized career direction."
+                        />
+
+                        <p className="text-sm leading-7 text-blue-100">
+                          {careerOverview}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* CURRENT STRENGTHS ONLY */}
+
+                    {strengths.length > 0 && (
+                      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-6">
+                        <SectionHeader
+                          icon={FaTools}
+                          title="Current Strengths"
+                          description="A small preview of the strengths identified from your profile."
+                        />
+
+                        <ValueList
+                          value={strengths.slice(0, 3)}
+                          emptyText="No strengths available."
+                        />
+
+                        {strengthsAreFromProfile && (
+                          <div className="mt-4 rounded-xl border border-emerald-400/10 bg-emerald-400/5 p-3">
+                            <p className="text-xs leading-5 text-emerald-200/70">
+                              These strengths are based on the
+                              skills you provided.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </section>
+
+                  {/* =================================================
+                      LOCKED / BLURRED CONTENT
+                  ================================================= */}
+
+                  <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#0b1224]">
+                    <div className="pointer-events-none select-none max-h-[700px] overflow-hidden p-6 sm:p-8">
+                      <div className="space-y-10 blur-[7px] opacity-50">
+
+                        {/* SKILL ASSESSMENT - LOCKED */}
+
+                        {(skillGaps.length > 0 ||
+                          prioritySkills.length > 0) && (
+                          <section>
+                            <SectionHeader
+                              icon={FaTools}
+                              title="Skill Assessment"
+                              description="Understand your skill gaps and priority skills."
+                            />
+
+                            <div className="grid gap-5 md:grid-cols-2">
+                              {skillGaps.length > 0 && (
+                                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-6">
+                                  <h3 className="mb-4 font-bold text-amber-300">
+                                    Skill Gaps
+                                  </h3>
+
+                                  <ValueList
+                                    value={skillGaps}
+                                  />
+                                </div>
+                              )}
+
+                              {prioritySkills.length > 0 && (
+                                <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-6">
+                                  <h3 className="mb-4 font-bold text-blue-300">
+                                    Priority Skills
+                                  </h3>
+
+                                  <ValueList
+                                    value={prioritySkills}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </section>
+                        )}
+
+                        {/* ROADMAP PHASES */}
+
+                        {phases.length > 0 && (
+                          <section>
+                            <SectionHeader
+                              icon={FaRoad}
+                              title="Roadmap Phases"
+                              description="Your personalized progression plan."
+                            />
+
+                            <div className="space-y-5">
+                              {phases
+                                .slice(0, 4)
+                                .map(
+                                  (
+                                    phase,
+                                    index
+                                  ) => (
+                                    <RoadmapPhaseCard
+                                      key={`locked-phase-${index}`}
+                                      phase={phase}
+                                      index={index}
+                                    />
+                                  )
+                                )}
+                            </div>
+                          </section>
+                        )}
+
+                        {/* LEARNING PLAN */}
+
+                        {Object.keys(
+                          learningPlan
+                        ).length > 0 && (
+                          <section>
+                            <SectionHeader
+                              icon={FaGraduationCap}
+                              title="Weekly Learning Plan"
+                              description="Your personalized weekly learning schedule."
+                            />
+
+                            <div className="rounded-2xl border border-white/10 bg-[#0b1224] p-6">
+                              <ObjectDetails
+                                value={
+                                  learningPlan
+                                }
+                              />
+                            </div>
+                          </section>
+                        )}
+
+                        {/* PROJECTS */}
+
+                        {projects.length > 0 && (
+                          <section>
+                            <SectionHeader
+                              icon={FaBriefcase}
+                              title="Projects & Experience"
+                              description="Practical projects recommended for your career path."
+                            />
+
+                            <div className="grid gap-5 md:grid-cols-2">
+                              {projects
+                                .slice(0, 4)
+                                .map(
+                                  (
+                                    project,
+                                    index
+                                  ) => (
+                                    <ProjectCard
+                                      key={`locked-project-${index}`}
+                                      project={
+                                        project
+                                      }
+                                      index={
+                                        index
+                                      }
+                                    />
+                                  )
+                                )}
+                            </div>
+                          </section>
+                        )}
+
+                        {/* CERTIFICATIONS */}
+
+                        {certifications.length >
+                          0 && (
+                          <section>
+                            <SectionHeader
+                              icon={FaCertificate}
+                              title="Recommended Certifications"
+                              description="Certifications selected for your career direction."
+                            />
+
+                            <div className="grid gap-5 md:grid-cols-2">
+                              {certifications
+                                .slice(0, 4)
+                                .map(
+                                  (
+                                    certification,
+                                    index
+                                  ) => (
+                                    <CertificationCard
+                                      key={`locked-certification-${index}`}
+                                      certification={
+                                        certification
+                                      }
+                                      index={
+                                        index
+                                      }
+                                    />
+                                  )
+                                )}
+                            </div>
+                          </section>
+                        )}
+
+                        {/* CAREER PREPARATION */}
+
+                        {Object.keys(
+                          careerPreparation
+                        ).length > 0 && (
+                          <section>
+                            <SectionHeader
+                              icon={FaRocket}
+                              title="Career Preparation"
+                              description="Your job-readiness preparation plan."
+                            />
+
+                            <div className="grid gap-5 md:grid-cols-2">
+                              {Object.entries(
+                                careerPreparation
+                              ).map(
+                                ([key, value]) => (
+                                  <div
+                                    key={key}
+                                    className="rounded-2xl border border-white/10 bg-[#0b1224] p-6"
+                                  >
+                                    <h3 className="mb-4 font-bold text-white">
+                                      {prettyLabel(
+                                        key
+                                      )}
+                                    </h3>
+
+                                    {Array.isArray(
+                                      value
+                                    ) ? (
+                                      <ValueList
+                                        value={
+                                          value
+                                        }
+                                      />
+                                    ) : isObject(
+                                        value
+                                      ) ? (
+                                      <ObjectDetails
+                                        value={
+                                          value
+                                        }
+                                      />
+                                    ) : (
+                                      <p className="text-sm leading-6 text-slate-400">
+                                        {getString(
+                                          value
+                                        )}
+                                      </p>
+                                    )}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </section>
+                        )}
+
+                        {/* MILESTONES */}
+
+                        {milestones.length >
+                          0 && (
+                          <section>
+                            <SectionHeader
+                              icon={FaTrophy}
+                              title="Career Milestones"
+                              description="Your career progress checkpoints."
+                            />
+
+                            <div className="space-y-4">
+                              {milestones
+                                .slice(0, 4)
+                                .map(
+                                  (
+                                    milestone,
+                                    index
+                                  ) => (
+                                    <div
+                                      key={`locked-milestone-${index}`}
+                                      className="rounded-2xl border border-white/10 bg-[#0b1224] p-5"
+                                    >
+                                      <h3 className="font-bold text-white">
+                                        Milestone{" "}
+                                        {index +
+                                          1}
+                                      </h3>
+
+                                      <ObjectDetails
+                                        value={
+                                          milestone
+                                        }
+                                      />
+                                    </div>
+                                  )
+                                )}
+                            </div>
+                          </section>
+                        )}
+
+                        {/* NEXT STEPS */}
+
+                        {nextSteps.length > 0 && (
+                          <section>
+                            <SectionHeader
+                              icon={FaLightbulb}
+                              title="Your Next Steps"
+                              description="Actions to help you move forward."
+                            />
+
+                            <ValueList
+                              value={nextSteps}
+                            />
+                          </section>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* LOCK OVERLAY */}
+
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-950/45 backdrop-blur-[1px]">
+                      <div className="mx-4 max-w-md rounded-3xl border border-blue-400/20 bg-[#07111f]/95 p-7 text-center shadow-2xl shadow-black/50">
+                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-blue-400/20 bg-blue-500/10 text-blue-400">
+                          <FaLockIcon />
+                        </div>
+
+                        <h3 className="text-xl font-bold text-white">
+                          Full Career Roadmap Locked
+                        </h3>
+
+                        <p className="mt-3 text-sm leading-6 text-slate-400">
+                          You can see a small preview of your
+                          personalized roadmap above. Subscribe
+                          to unlock the complete roadmap,
+                          learning plan, projects,
+                          certifications and career preparation.
+                        </p>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowSubscriptionModal(
+                              true
+                            )
+                          }
+                          className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:from-blue-500 hover:to-cyan-400"
+                        >
+                          <FaRocket />
+                          Unlock Full Roadmap
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* GENERATE AGAIN */}
+
+                  <div className="mt-10 mb-12 flex flex-col items-center justify-center rounded-3xl border border-white/10 bg-[#0b1224] p-8 text-center shadow-xl shadow-black/20">
+                    <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-blue-500/20 bg-blue-500/10 text-blue-400">
+                      <FaRocket />
+                    </div>
+
+                    <h3 className="text-xl font-bold text-white">
+                      Want to refine your career direction?
+                    </h3>
+
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
+                      Update your profile information and
+                      generate a new roadmap whenever your
+                      goals, skills or experience change.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        document
+                          .getElementById(
+                            "roadmap-form"
+                          )
+                          ?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                      }}
+                      className="mt-5 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:from-blue-500 hover:to-cyan-400"
+                    >
+                      Generate Updated Roadmap
+                      <FaArrowRight />
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* INFORMATION SECTION */}
+
+              {isSubscribed && (
+                <section className="rounded-3xl border border-white/10 bg-[#0b1224] p-6 shadow-xl shadow-black/20 sm:p-8">
+                  <div className="mb-6">
+                    <h2 className="text-2xl font-bold text-white">
+                      What Your Career Roadmap Includes
+                    </h2>
+
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+                      CareerPilot turns your profile into an
+                      actionable career development plan
+                      rather than giving you generic career
+                      advice.
+                    </p>
+                  </div>
+
+                  <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+                    {[
+                      {
+                        icon: FaBullseye,
+                        title: "Career Direction",
+                        description:
+                          "A clear direction based on your target role and current position.",
+                      },
+                      {
+                        icon: FaTools,
+                        title: "Skill Development",
+                        description:
+                          "Identify important skills and prioritize what to learn next.",
+                      },
+                      {
+                        icon: FaBriefcase,
+                        title: "Real Projects",
+                        description:
+                          "Build practical projects that demonstrate your capabilities.",
+                      },
+                      {
+                        icon: FaRocket,
+                        title: "Career Preparation",
+                        description:
+                          "Prepare your resume, portfolio, interviews and job search strategy.",
+                      },
+                    ].map((item) => {
+                      const Icon = item.icon;
+
+                      return (
+                        <div
+                          key={item.title}
+                          className="rounded-2xl border border-white/5 bg-[#050b18] p-5"
+                        >
+                          <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
+                            <Icon />
+                          </div>
+
+                          <h3 className="font-bold text-white">
+                            {item.title}
+                          </h3>
+
+                          <p className="mt-2 text-sm leading-6 text-slate-400">
+                            {item.description}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
             </section>
           </>
         )}
 
-        {/* =================================================
-            FOOTER NAVIGATION
-        ================================================= */}
+        {/* FOOTER NAVIGATION */}
 
         <div className="mt-8">
           <button
@@ -2152,6 +2632,30 @@ export default function CareerRoadmap() {
           </button>
         </div>
       </main>
+
+      {/* SUBSCRIPTION MODAL */}
+
+      {showSubscriptionModal && !isSubscribed && (
+        <SubscriptionModal
+          featureName="Career Roadmap"
+          onClose={handleSubscriptionClose}
+        />
+      )}
     </div>
+  );
+}
+
+/* =========================================================
+   SMALL LOCK ICON
+========================================================= */
+
+function FaLockIcon() {
+  return (
+    <span
+      aria-hidden="true"
+      className="text-lg"
+    >
+      🔒
+    </span>
   );
 }

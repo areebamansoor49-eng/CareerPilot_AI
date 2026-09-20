@@ -25,6 +25,8 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
+import SubscriptionModal from "../components/SubscriptionModal";
+import { getSubscriptionStatus } from "../utils/subscription";
 
 /* =========================================================
    TYPES
@@ -795,6 +797,30 @@ const roleData: Record<string, RoleData> = {
           "bcrypt",
         ],
       },
+      {
+        question:
+          "How would you design error handling for a REST API?",
+        category: "API Design",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "error",
+          "status",
+          "response",
+          "logging",
+        ],
+      },
+      {
+        question:
+          "How would you prevent a backend API from being overloaded by too many requests?",
+        category: "Reliability",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "rate",
+          "limit",
+          "request",
+          "traffic",
+        ],
+      },
     ],
     resources: [
       {
@@ -909,6 +935,54 @@ const roleData: Record<string, RoleData> = {
           "fix",
         ],
       },
+      {
+        question:
+          "How would you design authentication between a React frontend and Node.js backend?",
+        category: "Authentication",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "authentication",
+          "token",
+          "backend",
+          "frontend",
+        ],
+      },
+      {
+        question:
+          "How would you debug a feature that works locally but fails in production?",
+        category: "Debugging",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "logs",
+          "environment",
+          "reproduce",
+          "production",
+        ],
+      },
+      {
+        question:
+          "How would you protect sensitive data in a full-stack application?",
+        category: "Security",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "validation",
+          "authentication",
+          "encryption",
+          "secrets",
+        ],
+      },
+      {
+        question:
+          "Tell me about a full-stack project you have built and the challenges you faced.",
+        category: "Behavioral",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "project",
+          "challenge",
+          "solution",
+          "role",
+        ],
+      },
     ],
     resources: [
       {
@@ -1019,6 +1093,54 @@ const roleData: Record<string, RoleData> = {
           "insight",
         ],
       },
+      {
+        question:
+          "What is the difference between correlation and causation?",
+        category: "Statistics",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "correlation",
+          "causation",
+          "relationship",
+          "cause",
+        ],
+      },
+      {
+        question:
+          "How would you investigate an unexpected drop in a business KPI?",
+        category: "Data Analysis",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "data",
+          "trend",
+          "segment",
+          "cause",
+        ],
+      },
+      {
+        question:
+          "How would you validate that your analysis is accurate?",
+        category: "Data Quality",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "validate",
+          "data",
+          "check",
+          "accuracy",
+        ],
+      },
+      {
+        question:
+          "How would you explain a complex data finding to a non-technical manager?",
+        category: "Communication",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "simple",
+          "business",
+          "insight",
+          "recommendation",
+        ],
+      },
     ],
     resources: [
       {
@@ -1116,7 +1238,71 @@ const roleData: Record<string, RoleData> = {
           "recover",
         ],
       },
-    ],
+    
+      {
+        question:
+          "What is the principle of least privilege?",
+        category: "Security Fundamentals",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "least",
+          "privilege",
+          "access",
+          "permission",
+        ],
+      },
+      {
+        question:
+          "How would you investigate a suspicious login from an unfamiliar location?",
+        category: "Incident Response",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "login",
+          "logs",
+          "ip",
+          "user",
+          "investigate",
+        ],
+      },
+      {
+        question:
+          "What is the difference between a vulnerability, a threat and a risk?",
+        category: "Security Fundamentals",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "vulnerability",
+          "threat",
+          "risk",
+          "impact",
+        ],
+      },
+      {
+        question:
+          "How would you prioritize vulnerabilities found during a security assessment?",
+        category: "Vulnerability Management",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "severity",
+          "impact",
+          "exploit",
+          "risk",
+          "priority",
+        ],
+      },
+      {
+        question:
+          "Tell me about a security problem you would expect to face in a real organization and how you would approach it.",
+        category: "Scenario",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "security",
+          "problem",
+          "investigate",
+          "solution",
+          "risk",
+        ],
+      },
+],
     resources: [
       {
         title: "OWASP",
@@ -1209,7 +1395,71 @@ const roleData: Record<string, RoleData> = {
           "monitoring",
         ],
       },
-    ],
+    
+      {
+        question:
+          "What is the difference between Continuous Integration and Continuous Delivery?",
+        category: "CI/CD",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "continuous",
+          "integration",
+          "delivery",
+          "pipeline",
+        ],
+      },
+      {
+        question:
+          "What steps would you take if a production deployment suddenly failed?",
+        category: "Deployment",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "logs",
+          "rollback",
+          "deployment",
+          "error",
+          "monitoring",
+        ],
+      },
+      {
+        question:
+          "What problem does container orchestration solve, and why might a team use Kubernetes?",
+        category: "Containers",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "container",
+          "orchestration",
+          "kubernetes",
+          "scaling",
+        ],
+      },
+      {
+        question:
+          "How would you design monitoring and alerting for a production application?",
+        category: "Monitoring",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "monitoring",
+          "metrics",
+          "logs",
+          "alerts",
+          "health",
+        ],
+      },
+      {
+        question:
+          "How would you reduce cloud costs without negatively affecting application reliability?",
+        category: "Cloud Architecture",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "cost",
+          "resource",
+          "scaling",
+          "optimization",
+          "reliability",
+        ],
+      },
+],
     resources: [
       {
         title: "AWS Documentation",
@@ -1300,7 +1550,72 @@ const roleData: Record<string, RoleData> = {
           "monitoring",
         ],
       },
-    ],
+    
+      {
+        question:
+          "What is feature engineering and why is it important in machine learning?",
+        category: "Machine Learning",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "feature",
+          "data",
+          "engineering",
+          "model",
+        ],
+      },
+      {
+        question:
+          "How would you handle an imbalanced classification dataset?",
+        category: "Machine Learning",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "imbalanced",
+          "class",
+          "sampling",
+          "precision",
+          "recall",
+        ],
+      },
+      {
+        question:
+          "How would you choose between different machine learning models for a problem?",
+        category: "Model Selection",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "model",
+          "data",
+          "validation",
+          "performance",
+          "problem",
+        ],
+      },
+      {
+        question:
+          "What is model drift and how would you detect it in production?",
+        category: "MLOps",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "drift",
+          "model",
+          "production",
+          "performance",
+          "monitoring",
+        ],
+      },
+      {
+        question:
+          "Tell me about a machine learning project you would build to solve a real business problem.",
+        category: "Practical AI",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "project",
+          "data",
+          "model",
+          "business",
+          "evaluation",
+        ],
+      },
+],
     resources: [
       {
         title:
@@ -1393,7 +1708,69 @@ const roleData: Record<string, RoleData> = {
           "testing",
         ],
       },
-    ],
+    
+      {
+        question:
+          "Explain boundary value analysis with an example.",
+        category: "Test Design",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "explain",
+          "boundary",
+          "value",
+          "analysis",
+          "example",
+        ],
+      },
+      {
+        question:
+          "What is regression testing and when should it be performed?",
+        category: "Regression Testing",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "regression",
+          "testing",
+          "should",
+          "performed",
+        ],
+      },
+      {
+        question:
+          "How would you test an API endpoint?",
+        category: "API Testing",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "would",
+          "endpoint",
+        ],
+      },
+      {
+        question:
+          "How would you investigate a bug that you cannot reproduce consistently?",
+        category: "Defect Investigation",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "would",
+          "investigate",
+          "cannot",
+          "reproduce",
+          "consistently",
+        ],
+      },
+      {
+        question:
+          "A release has limited testing time. How would you decide what to test first?",
+        category: "Risk-Based Testing",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "release",
+          "limited",
+          "testing",
+          "would",
+          "decide",
+        ],
+      },
+],
     resources: [
       {
         title: "ISTQB",
@@ -1484,7 +1861,69 @@ const roleData: Record<string, RoleData> = {
           "business",
         ],
       },
-    ],
+    
+      {
+        question:
+          "What is requirements gathering and why is it important?",
+        category: "Requirements",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "requirements",
+          "gathering",
+          "important",
+        ],
+      },
+      {
+        question:
+          "How would you document requirements for a software team?",
+        category: "Documentation",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "would",
+          "document",
+          "requirements",
+          "software",
+        ],
+      },
+      {
+        question:
+          "How would you identify the root cause of a business problem?",
+        category: "Problem Analysis",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "would",
+          "identify",
+          "cause",
+          "business",
+          "problem",
+        ],
+      },
+      {
+        question:
+          "How would you use data to support a business recommendation?",
+        category: "Data Analysis",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "would",
+          "support",
+          "business",
+          "recommendation",
+        ],
+      },
+      {
+        question:
+          "A stakeholder rejects a requirement that the development team considers essential. How would you resolve the disagreement?",
+        category: "Scenario",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "stakeholder",
+          "rejects",
+          "requirement",
+          "development",
+          "considers",
+        ],
+      },
+],
     resources: [
       {
         title: "IIBA",
@@ -1576,7 +2015,68 @@ const roleData: Record<string, RoleData> = {
           "research",
         ],
       },
-    ],
+    
+      {
+        question:
+          "What is a target audience and why is it important?",
+        category: "Marketing Fundamentals",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "target",
+          "audience",
+          "important",
+        ],
+      },
+      {
+        question:
+          "What is a marketing funnel?",
+        category: "Marketing Fundamentals",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "marketing",
+          "funnel",
+        ],
+      },
+      {
+        question:
+          "How would you use social media analytics to improve a campaign?",
+        category: "Social Media Marketing",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "would",
+          "social",
+          "media",
+          "analytics",
+          "improve",
+        ],
+      },
+      {
+        question:
+          "How would you perform A/B testing for a marketing campaign?",
+        category: "Marketing Analytics",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "would",
+          "perform",
+          "testing",
+          "marketing",
+          "campaign",
+        ],
+      },
+      {
+        question:
+          "A campaign receives many clicks but generates very few sales. How would you investigate and improve it?",
+        category: "Scenario",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "campaign",
+          "receives",
+          "clicks",
+          "generates",
+          "sales",
+        ],
+      },
+],
     resources: [
       {
         title: "Google Skillshop",
@@ -1667,7 +2167,71 @@ const roleData: Record<string, RoleData> = {
           "growth",
         ],
       },
-    ],
+    
+      {
+        question:
+          "What is the purpose of an employee onboarding process?",
+        category: "HR Fundamentals",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "purpose",
+          "employee",
+          "onboarding",
+          "process",
+        ],
+      },
+      {
+        question:
+          "What qualities would you look for when screening a candidate?",
+        category: "Recruitment",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "qualities",
+          "would",
+          "screening",
+          "candidate",
+        ],
+      },
+      {
+        question:
+          "How would you conduct an effective employee interview?",
+        category: "Recruitment",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "would",
+          "conduct",
+          "effective",
+          "employee",
+          "interview",
+        ],
+      },
+      {
+        question:
+          "How would you use employee feedback to improve workplace culture?",
+        category: "Employee Relations",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "would",
+          "employee",
+          "feedback",
+          "improve",
+          "workplace",
+        ],
+      },
+      {
+        question:
+          "An employee complains about unfair treatment but the manager denies the complaint. How would you investigate?",
+        category: "Scenario",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "employee",
+          "complains",
+          "about",
+          "unfair",
+          "treatment",
+        ],
+      },
+],
     resources: [
       {
         title: "SHRM",
@@ -1759,7 +2323,70 @@ const roleData: Record<string, RoleData> = {
           "production",
         ],
       },
-    ],
+    
+      {
+        question:
+          "What is a balance sheet?",
+        category: "Accounting Fundamentals",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "balance",
+          "sheet",
+        ],
+      },
+      {
+        question:
+          "What is the difference between accounts payable and accounts receivable?",
+        category: "Accounting Fundamentals",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "difference",
+          "between",
+          "accounts",
+          "payable",
+          "receivable",
+        ],
+      },
+      {
+        question:
+          "How would you analyze a company's monthly financial performance?",
+        category: "Financial Analysis",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "would",
+          "analyze",
+          "companys",
+          "monthly",
+          "financial",
+        ],
+      },
+      {
+        question:
+          "How would you identify unusual transactions in financial records?",
+        category: "Financial Controls",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "would",
+          "identify",
+          "unusual",
+          "transactions",
+          "financial",
+        ],
+      },
+      {
+        question:
+          "A company has strong reported profits but repeatedly struggles to pay its bills. How would you investigate?",
+        category: "Scenario",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "company",
+          "strong",
+          "reported",
+          "profits",
+          "repeatedly",
+        ],
+      },
+],
     resources: [
       {
         title: "Investopedia",
@@ -1851,7 +2478,69 @@ const roleData: Record<string, RoleData> = {
           "kpi",
         ],
       },
-    ],
+    
+      {
+        question:
+          "What is a sales pipeline?",
+        category: "Sales Fundamentals",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "sales",
+          "pipeline",
+        ],
+      },
+      {
+        question:
+          "What is the difference between a lead and a qualified prospect?",
+        category: "Sales Process",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "difference",
+          "between",
+          "qualified",
+          "prospect",
+        ],
+      },
+      {
+        question:
+          "How would you prepare for an important sales meeting?",
+        category: "Sales Process",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "would",
+          "prepare",
+          "important",
+          "sales",
+          "meeting",
+        ],
+      },
+      {
+        question:
+          "How would you build a business case for a potential enterprise customer?",
+        category: "Business Development",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "would",
+          "build",
+          "business",
+          "potential",
+          "enterprise",
+        ],
+      },
+      {
+        question:
+          "A prospect says they are happy with a competitor and see no reason to switch. How would you respond?",
+        category: "Scenario",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "prospect",
+          "happy",
+          "competitor",
+          "reason",
+          "switch",
+        ],
+      },
+],
     resources: [
       {
         title: "HubSpot Academy",
@@ -1942,7 +2631,68 @@ const roleData: Record<string, RoleData> = {
           "mitigation",
         ],
       },
-    ],
+    
+      {
+        question:
+          "What is a project scope?",
+        category: "Project Management",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "project",
+          "scope",
+        ],
+      },
+      {
+        question:
+          "Why is a project schedule important?",
+        category: "Project Planning",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "project",
+          "schedule",
+          "important",
+        ],
+      },
+      {
+        question:
+          "How would you track project progress and communicate status to stakeholders?",
+        category: "Project Control",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "would",
+          "track",
+          "project",
+          "progress",
+          "communicate",
+        ],
+      },
+      {
+        question:
+          "How would you identify and manage risks before they affect a project?",
+        category: "Risk Management",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "would",
+          "identify",
+          "manage",
+          "risks",
+          "before",
+        ],
+      },
+      {
+        question:
+          "Two important stakeholders want different outcomes from the same project. How would you manage the conflict?",
+        category: "Scenario",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "important",
+          "stakeholders",
+          "different",
+          "outcomes",
+          "project",
+        ],
+      },
+],
     resources: [
       {
         title: "PMI",
@@ -2033,7 +2783,67 @@ const roleData: Record<string, RoleData> = {
           "alternative",
         ],
       },
-    ],
+    
+      {
+        question:
+          "What is inventory turnover?",
+        category: "Inventory Management",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "inventory",
+          "turnover",
+        ],
+      },
+      {
+        question:
+          "What is lead time in supply chain management?",
+        category: "Supply Chain Fundamentals",
+        difficulty: "Beginner",
+        expectedPoints: [
+          "supply",
+          "chain",
+          "management",
+        ],
+      },
+      {
+        question:
+          "How would you forecast product demand?",
+        category: "Demand Planning",
+        difficulty: "Intermediate",
+        expectedPoints: [
+          "would",
+          "forecast",
+          "product",
+          "demand",
+        ],
+      },
+      {
+        question:
+          "How would you reduce delays in a supply chain?",
+        category: "Operations",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "would",
+          "reduce",
+          "delays",
+          "supply",
+          "chain",
+        ],
+      },
+      {
+        question:
+          "A supplier repeatedly misses delivery deadlines and affects customer orders. How would you respond?",
+        category: "Scenario",
+        difficulty: "Advanced",
+        expectedPoints: [
+          "supplier",
+          "repeatedly",
+          "misses",
+          "delivery",
+          "deadlines",
+        ],
+      },
+],
     resources: [
       {
         title: "ASCM",
@@ -2094,6 +2904,15 @@ function AIInterviews() {
     useState(false);
 
   const [checkingAccess, setCheckingAccess] =
+    useState(false);
+
+  const [isSubscribed, setIsSubscribed] =
+    useState(false);
+
+  const [showSubscriptionModal, setShowSubscriptionModal] =
+    useState(false);
+
+  const [checkingSubscription, setCheckingSubscription] =
     useState(false);
 
   /* =========================================================
@@ -2260,7 +3079,7 @@ function AIInterviews() {
      NEXT QUESTION
   ========================================================= */
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const question =
       questions[currentQuestion];
 
@@ -2287,6 +3106,41 @@ function AIInterviews() {
       currentQuestion <
       questions.length - 1
     ) {
+      // The first two questions are available for free.
+      // Before moving from question 2 to question 3,
+      // check whether the user has an active subscription.
+      if (currentQuestion === 1) {
+        setCheckingSubscription(true);
+
+        try {
+          const subscription =
+            await getSubscriptionStatus();
+
+          const subscribed = Boolean(
+            subscription.success &&
+            subscription.subscribed
+          );
+
+          setIsSubscribed(subscribed);
+
+          if (!subscribed) {
+            setShowSubscriptionModal(true);
+            return;
+          }
+        } catch (subscriptionError) {
+          console.error(
+            "AI Interview subscription check failed:",
+            subscriptionError
+          );
+
+          setIsSubscribed(false);
+          setShowSubscriptionModal(true);
+          return;
+        } finally {
+          setCheckingSubscription(false);
+        }
+      }
+
       setCurrentQuestion(
         currentQuestion + 1
       );
@@ -3424,6 +4278,40 @@ function AIInterviews() {
         </div>
 
       </main>
+
+      {showSubscriptionModal && !isSubscribed && (
+        <SubscriptionModal
+          featureName="AI Interview"
+          onClose={async () => {
+            setShowSubscriptionModal(false);
+            setCheckingSubscription(true);
+
+            try {
+              const subscription =
+                await getSubscriptionStatus();
+
+              const subscribed = Boolean(
+                subscription.success &&
+                subscription.subscribed
+              );
+
+              setIsSubscribed(subscribed);
+
+              if (subscribed) {
+                setShowSubscriptionModal(false);
+              }
+            } catch (subscriptionError) {
+              console.error(
+                "AI Interview subscription recheck failed:",
+                subscriptionError
+              );
+              setIsSubscribed(false);
+            } finally {
+              setCheckingSubscription(false);
+            }
+          }}
+        />
+      )}
 
     </div>
   );

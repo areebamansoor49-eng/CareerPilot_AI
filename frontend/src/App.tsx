@@ -32,7 +32,6 @@ import Privacy from "./pages/Privacy";
 import Settings from "./pages/Settings";
 
 import ProtectedRoute from "./components/ProtectedRoute";
-import PremiumRoute from "./components/PremiumRoute";
 
 /* =========================================================
    HOME BUTTON
@@ -96,29 +95,6 @@ function ProtectedPage({
         {children}
       </ProtectedRoute>
     </PageLayout>
-  );
-}
-
-/* =========================================================
-   PREMIUM PAGE
-   Login + active subscription required
-========================================================= */
-
-function PremiumPage({
-  children,
-  featureName,
-}: {
-  children: ReactNode;
-  featureName: string;
-}) {
-  return (
-    <ProtectedRoute>
-      <PremiumRoute featureName={featureName}>
-        <PageLayout>
-          {children}
-        </PageLayout>
-      </PremiumRoute>
-    </ProtectedRoute>
   );
 }
 
@@ -294,8 +270,8 @@ function App() {
             RESUME ANALYZER
             Login required.
 
-            The existing ResumeAnalyzer page handles
-            its one-free-use/subscription logic.
+            ResumeAnalyzer handles its own
+            free-use/subscription logic.
         ================================================= */}
 
         <Route
@@ -308,34 +284,74 @@ function App() {
         />
 
         {/* =================================================
-            PREMIUM FEATURES
-            Login + ACTIVE SUBSCRIPTION REQUIRED
+            CAREER ROADMAP
+            Login required.
+
+            IMPORTANT:
+            Do NOT block the entire page here.
+
+            CareerRoadmap itself will:
+            1. Allow user to enter details.
+            2. Generate the roadmap.
+            3. Show a small preview.
+            4. Blur/hide the remaining roadmap.
+            5. Show SubscriptionModal for unsubscribed users.
         ================================================= */}
 
         <Route
           path="/career-roadmap"
           element={
-            <PremiumPage featureName="Career Roadmap">
+            <ProtectedPage>
               <CareerRoadmap />
-            </PremiumPage>
+            </ProtectedPage>
           }
         />
+
+        {/* =================================================
+            AI INTERVIEW
+            Login required.
+
+            IMPORTANT:
+            Do NOT block the entire page here.
+
+            AIInterview itself will:
+            1. Allow domain/difficulty selection.
+            2. Start the interview.
+            3. Allow the first 2 questions.
+            4. Lock the remaining interview for unsubscribed users.
+            5. Show SubscriptionModal after question 2.
+        ================================================= */}
 
         <Route
           path="/ai-interview"
           element={
-            <PremiumPage featureName="AI Interview">
+            <ProtectedPage>
               <AIInterview />
-            </PremiumPage>
+            </ProtectedPage>
           }
         />
+
+        {/* =================================================
+            LINKEDIN OPTIMIZER
+            Login required.
+
+            IMPORTANT:
+            Do NOT block the entire page here.
+
+            LinkedInOptimizer itself will:
+            1. Allow the user to fill all LinkedIn details.
+            2. Analyze the profile.
+            3. Show a small preview.
+            4. Blur/hide the remaining analysis.
+            5. Show SubscriptionModal for unsubscribed users.
+        ================================================= */}
 
         <Route
           path="/linkedin-optimizer"
           element={
-            <PremiumPage featureName="LinkedIn Optimizer">
+            <ProtectedPage>
               <LinkedInOptimizer />
-            </PremiumPage>
+            </ProtectedPage>
           }
         />
 

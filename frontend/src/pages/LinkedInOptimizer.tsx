@@ -12,14 +12,14 @@ import {
   FaLightbulb,
   FaUserTie,
   FaExternalLinkAlt,
+  FaLock,
 } from "react-icons/fa";
 
-import {
-  useEffect,
-  useState,
-} from "react";
-
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
+import SubscriptionModal from "../components/SubscriptionModal";
+import { getSubscriptionStatus } from "../utils/subscription";
 
 // ======================================================
 // TYPES
@@ -75,22 +75,15 @@ interface AnalysisCollectionSection {
 interface AnalysisResult {
   profileScore: number;
   completenessScore: number;
-
   sections: {
     headline: AnalysisSection;
     about: AnalysisSection;
-
     skills: AnalysisCollectionSection;
-
     experience: AnalysisCollectionSection;
-
     education: AnalysisCollectionSection;
-
     certifications: AnalysisCollectionSection;
   };
-
   suggestions: string[];
-
   analyzedAt: string;
 }
 
@@ -106,8 +99,7 @@ interface ApiResponse {
 // ======================================================
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  "http://localhost:5000";
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const LINKEDIN_LOGIN_URL =
   `${API_BASE_URL}/api/linkedin/login`;
@@ -152,21 +144,10 @@ const createInitialProfile = (): ProfileData => ({
   fullName: "",
   headline: "",
   about: "",
-
   skills: [""],
-
-  experience: [
-    createEmptyExperience(),
-  ],
-
-  education: [
-    createEmptyEducation(),
-  ],
-
-  certifications: [
-    createEmptyCertification(),
-  ],
-
+  experience: [createEmptyExperience()],
+  education: [createEmptyEducation()],
+  certifications: [createEmptyCertification()],
   projects: [],
 });
 
@@ -174,9 +155,7 @@ const createInitialProfile = (): ProfileData => ({
 // HELPERS
 // ======================================================
 
-function isValidLinkedInUrl(
-  value: string
-): boolean {
+function isValidLinkedInUrl(value: string): boolean {
   if (!value.trim()) {
     return true;
   }
@@ -186,38 +165,25 @@ function isValidLinkedInUrl(
 
     return (
       url.protocol === "https:" &&
-      (
-        url.hostname === "linkedin.com" ||
-        url.hostname === "www.linkedin.com"
-      ) &&
-      /^\/in\/[^/]+\/?$/i.test(
-        url.pathname
-      )
+      (url.hostname === "linkedin.com" ||
+        url.hostname === "www.linkedin.com") &&
+      /^\/in\/[^/]+\/?$/i.test(url.pathname)
     );
   } catch {
     return false;
   }
 }
 
-function clampScore(
-  score: number
-): number {
+function clampScore(score: number): number {
   if (!Number.isFinite(score)) {
     return 0;
   }
 
-  return Math.min(
-    100,
-    Math.max(0, Math.round(score))
-  );
+  return Math.min(100, Math.max(0, Math.round(score)));
 }
 
-function cleanString(
-  value: unknown
-): string {
-  return typeof value === "string"
-    ? value.trim()
-    : "";
+function cleanString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 // ======================================================
@@ -228,63 +194,83 @@ function LinkedInOptimizer() {
   const navigate = useNavigate();
 
   // ====================================================
-  // STATE
+  // PROFILE STATE
   // ====================================================
 
-  const [profile, setProfile] =
-    useState<ProfileData>(
-      createInitialProfile()
-    );
+  const [profile, setProfile] = useState<ProfileData>(
+    createInitialProfile()
+  );
 
-  const [loading, setLoading] =
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+
+  const [linkedinConnecting, setLinkedinConnecting] =
     useState(false);
 
-  const [error, setError] =
-    useState("");
+  const [linkedinConnected, setLinkedinConnected] =
+    useState(false);
 
-  const [success, setSuccess] =
-    useState("");
+  // ====================================================
+  // SUBSCRIPTION STATE
+  // ====================================================
 
-  const [result, setResult] =
-    useState<AnalysisResult | null>(null);
+  const [isSubscribed, setIsSubscribed] =
+    useState(false);
 
-  const [
-    linkedinConnecting,
-    setLinkedinConnecting,
-  ] = useState(false);
+  const [checkingSubscription, setCheckingSubscription] =
+    useState(false);
 
-  const [
-    linkedinConnected,
-    setLinkedinConnected,
-  ] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] =
+    useState(false);
+
+  // ====================================================
+  // CHECK SUBSCRIPTION
+  // ====================================================
+
+  const checkSubscription = async (): Promise<boolean> => {
+    setCheckingSubscription(true);
+
+    try {
+      const status = await getSubscriptionStatus();
+
+      const subscribed = Boolean(
+        status.success && status.subscribed
+      );
+
+      setIsSubscribed(subscribed);
+
+      return subscribed;
+    } catch (subscriptionError) {
+      console.error(
+        "LinkedIn subscription check failed:",
+        subscriptionError
+      );
+
+      setIsSubscribed(false);
+
+      return false;
+    } finally {
+      setCheckingSubscription(false);
+    }
+  };
 
   // ====================================================
   // HANDLE LINKEDIN OAUTH RESULT
   // ====================================================
 
   useEffect(() => {
-    const params =
-      new URLSearchParams(
-        window.location.search
-      );
+    const params = new URLSearchParams(
+      window.location.search
+    );
 
-    const linkedinStatus =
-      params.get("linkedin");
+    const linkedinStatus = params.get("linkedin");
+    const linkedinError = params.get("linkedinError");
 
-    const linkedinError =
-      params.get("linkedinError");
-
-    // -----------------------------------------------
-    // SUCCESS
-    // -----------------------------------------------
-
-    if (
-      linkedinStatus === "success"
-    ) {
+    if (linkedinStatus === "success") {
       setLinkedinConnected(true);
-
       setLinkedinConnecting(false);
-
       setError("");
 
       setSuccess(
@@ -292,32 +278,15 @@ function LinkedInOptimizer() {
       );
     }
 
-    // -----------------------------------------------
-    // ERROR
-    // -----------------------------------------------
-
     if (linkedinError) {
       setLinkedinConnected(false);
-
       setLinkedinConnecting(false);
-
       setSuccess("");
-
-      setError(
-        linkedinError
-      );
+      setError(linkedinError);
     }
 
-    // -----------------------------------------------
-    // CLEAN URL
-    // -----------------------------------------------
-
-    if (
-      linkedinStatus ||
-      linkedinError
-    ) {
-      const cleanUrl =
-        window.location.pathname;
+    if (linkedinStatus || linkedinError) {
+      const cleanUrl = window.location.pathname;
 
       window.history.replaceState(
         {},
@@ -336,18 +305,6 @@ function LinkedInOptimizer() {
     setSuccess("");
     setLinkedinConnecting(true);
 
-    /*
-      IMPORTANT:
-
-      Backend route is:
-
-      GET /api/linkedin/login
-
-      NOT:
-
-      /api/linkedin/auth
-    */
-
     window.location.assign(
       LINKEDIN_LOGIN_URL
     );
@@ -361,15 +318,13 @@ function LinkedInOptimizer() {
     field: keyof ProfileData,
     value: string
   ) => {
-    setProfile(
-      (previous) => ({
-        ...previous,
-        [field]: value,
-      })
-    );
+    setProfile((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
 
-    // Remove old result when user edits profile
     setResult(null);
+    setShowSubscriptionModal(false);
 
     if (error) {
       setError("");
@@ -388,57 +343,44 @@ function LinkedInOptimizer() {
     index: number,
     value: string
   ) => {
-    setProfile(
-      (previous) => {
-        const skills = [
-          ...previous.skills,
-        ];
+    setProfile((previous) => {
+      const skills = [...previous.skills];
 
-        skills[index] = value;
+      skills[index] = value;
 
-        return {
-          ...previous,
-          skills,
-        };
-      }
-    );
+      return {
+        ...previous,
+        skills,
+      };
+    });
 
     setResult(null);
+    setShowSubscriptionModal(false);
   };
 
   const addSkill = () => {
-    setProfile(
-      (previous) => ({
-        ...previous,
-        skills: [
-          ...previous.skills,
-          "",
-        ],
-      })
-    );
+    setProfile((previous) => ({
+      ...previous,
+      skills: [...previous.skills, ""],
+    }));
   };
 
-  const removeSkill = (
-    index: number
-  ) => {
-    setProfile(
-      (previous) => {
-        const updatedSkills =
-          previous.skills.filter(
-            (_, skillIndex) =>
-              skillIndex !== index
-          );
+  const removeSkill = (index: number) => {
+    setProfile((previous) => {
+      const updatedSkills =
+        previous.skills.filter(
+          (_, skillIndex) =>
+            skillIndex !== index
+        );
 
-        return {
-          ...previous,
-
-          skills:
-            updatedSkills.length > 0
-              ? updatedSkills
-              : [""],
-        };
-      }
-    );
+      return {
+        ...previous,
+        skills:
+          updatedSkills.length > 0
+            ? updatedSkills
+            : [""],
+      };
+    });
   };
 
   // ====================================================
@@ -450,60 +392,52 @@ function LinkedInOptimizer() {
     field: keyof Experience,
     value: string
   ) => {
-    setProfile(
-      (previous) => {
-        const experience =
-          [...previous.experience];
+    setProfile((previous) => {
+      const experience = [
+        ...previous.experience,
+      ];
 
-        experience[index] = {
-          ...experience[index],
-          [field]: value,
-        };
+      experience[index] = {
+        ...experience[index],
+        [field]: value,
+      };
 
-        return {
-          ...previous,
-          experience,
-        };
-      }
-    );
+      return {
+        ...previous,
+        experience,
+      };
+    });
 
     setResult(null);
+    setShowSubscriptionModal(false);
   };
 
   const addExperience = () => {
-    setProfile(
-      (previous) => ({
-        ...previous,
-
-        experience: [
-          ...previous.experience,
-          createEmptyExperience(),
-        ],
-      })
-    );
+    setProfile((previous) => ({
+      ...previous,
+      experience: [
+        ...previous.experience,
+        createEmptyExperience(),
+      ],
+    }));
   };
 
-  const removeExperience = (
-    index: number
-  ) => {
-    setProfile(
-      (previous) => {
-        const updated =
-          previous.experience.filter(
-            (_, experienceIndex) =>
-              experienceIndex !== index
-          );
+  const removeExperience = (index: number) => {
+    setProfile((previous) => {
+      const updated =
+        previous.experience.filter(
+          (_, experienceIndex) =>
+            experienceIndex !== index
+        );
 
-        return {
-          ...previous,
-
-          experience:
-            updated.length > 0
-              ? updated
-              : [createEmptyExperience()],
-        };
-      }
-    );
+      return {
+        ...previous,
+        experience:
+          updated.length > 0
+            ? updated
+            : [createEmptyExperience()],
+      };
+    });
   };
 
   // ====================================================
@@ -515,60 +449,52 @@ function LinkedInOptimizer() {
     field: keyof Education,
     value: string
   ) => {
-    setProfile(
-      (previous) => {
-        const education =
-          [...previous.education];
+    setProfile((previous) => {
+      const education = [
+        ...previous.education,
+      ];
 
-        education[index] = {
-          ...education[index],
-          [field]: value,
-        };
+      education[index] = {
+        ...education[index],
+        [field]: value,
+      };
 
-        return {
-          ...previous,
-          education,
-        };
-      }
-    );
+      return {
+        ...previous,
+        education,
+      };
+    });
 
     setResult(null);
+    setShowSubscriptionModal(false);
   };
 
   const addEducation = () => {
-    setProfile(
-      (previous) => ({
-        ...previous,
-
-        education: [
-          ...previous.education,
-          createEmptyEducation(),
-        ],
-      })
-    );
+    setProfile((previous) => ({
+      ...previous,
+      education: [
+        ...previous.education,
+        createEmptyEducation(),
+      ],
+    }));
   };
 
-  const removeEducation = (
-    index: number
-  ) => {
-    setProfile(
-      (previous) => {
-        const updated =
-          previous.education.filter(
-            (_, educationIndex) =>
-              educationIndex !== index
-          );
+  const removeEducation = (index: number) => {
+    setProfile((previous) => {
+      const updated =
+        previous.education.filter(
+          (_, educationIndex) =>
+            educationIndex !== index
+        );
 
-        return {
-          ...previous,
-
-          education:
-            updated.length > 0
-              ? updated
-              : [createEmptyEducation()],
-        };
-      }
-    );
+      return {
+        ...previous,
+        education:
+          updated.length > 0
+            ? updated
+            : [createEmptyEducation()],
+      };
+    });
   };
 
   // ====================================================
@@ -580,53 +506,47 @@ function LinkedInOptimizer() {
     field: keyof Certification,
     value: string
   ) => {
-    setProfile(
-      (previous) => {
-        const certifications =
-          [...previous.certifications];
+    setProfile((previous) => {
+      const certifications = [
+        ...previous.certifications,
+      ];
 
-        certifications[index] = {
-          ...certifications[index],
-          [field]: value,
-        };
+      certifications[index] = {
+        ...certifications[index],
+        [field]: value,
+      };
 
-        return {
-          ...previous,
-          certifications,
-        };
-      }
-    );
+      return {
+        ...previous,
+        certifications,
+      };
+    });
 
     setResult(null);
+    setShowSubscriptionModal(false);
   };
 
   const addCertification = () => {
-    setProfile(
-      (previous) => ({
-        ...previous,
-
-        certifications: [
-          ...previous.certifications,
-          createEmptyCertification(),
-        ],
-      })
-    );
+    setProfile((previous) => ({
+      ...previous,
+      certifications: [
+        ...previous.certifications,
+        createEmptyCertification(),
+      ],
+    }));
   };
 
   const removeCertification = (
     index: number
   ) => {
-    setProfile(
-      (previous) => ({
-        ...previous,
-
-        certifications:
-          previous.certifications.filter(
-            (_, certificationIndex) =>
-              certificationIndex !== index
-          ),
-      })
-    );
+    setProfile((previous) => ({
+      ...previous,
+      certifications:
+        previous.certifications.filter(
+          (_, certificationIndex) =>
+            certificationIndex !== index
+        ),
+    }));
   };
 
   // ====================================================
@@ -638,53 +558,45 @@ function LinkedInOptimizer() {
     field: keyof Project,
     value: string
   ) => {
-    setProfile(
-      (previous) => {
-        const projects =
-          [...previous.projects];
+    setProfile((previous) => {
+      const projects = [
+        ...previous.projects,
+      ];
 
-        projects[index] = {
-          ...projects[index],
-          [field]: value,
-        };
+      projects[index] = {
+        ...projects[index],
+        [field]: value,
+      };
 
-        return {
-          ...previous,
-          projects,
-        };
-      }
-    );
+      return {
+        ...previous,
+        projects,
+      };
+    });
 
     setResult(null);
+    setShowSubscriptionModal(false);
   };
 
   const addProject = () => {
-    setProfile(
-      (previous) => ({
-        ...previous,
-
-        projects: [
-          ...previous.projects,
-          createEmptyProject(),
-        ],
-      })
-    );
+    setProfile((previous) => ({
+      ...previous,
+      projects: [
+        ...previous.projects,
+        createEmptyProject(),
+      ],
+    }));
   };
 
-  const removeProject = (
-    index: number
-  ) => {
-    setProfile(
-      (previous) => ({
-        ...previous,
-
-        projects:
-          previous.projects.filter(
-            (_, projectIndex) =>
-              projectIndex !== index
-          ),
-      })
-    );
+  const removeProject = (index: number) => {
+    setProfile((previous) => ({
+      ...previous,
+      projects:
+        previous.projects.filter(
+          (_, projectIndex) =>
+            projectIndex !== index
+        ),
+    }));
   };
 
   // ====================================================
@@ -693,26 +605,18 @@ function LinkedInOptimizer() {
 
   const buildCleanProfile =
     (): ProfileData => {
-      const cleaned: ProfileData = {
+      return {
         linkedinUrl:
-          cleanString(
-            profile.linkedinUrl
-          ),
+          cleanString(profile.linkedinUrl),
 
         fullName:
-          cleanString(
-            profile.fullName
-          ),
+          cleanString(profile.fullName),
 
         headline:
-          cleanString(
-            profile.headline
-          ),
+          cleanString(profile.headline),
 
         about:
-          cleanString(
-            profile.about
-          ),
+          cleanString(profile.about),
 
         skills:
           profile.skills
@@ -723,24 +627,16 @@ function LinkedInOptimizer() {
           profile.experience
             .map((item) => ({
               title:
-                cleanString(
-                  item.title
-                ),
+                cleanString(item.title),
 
               company:
-                cleanString(
-                  item.company
-                ),
+                cleanString(item.company),
 
               duration:
-                cleanString(
-                  item.duration
-                ),
+                cleanString(item.duration),
 
               description:
-                cleanString(
-                  item.description
-                ),
+                cleanString(item.description),
             }))
             .filter(
               (item) =>
@@ -754,9 +650,7 @@ function LinkedInOptimizer() {
           profile.education
             .map((item) => ({
               degree:
-                cleanString(
-                  item.degree
-                ),
+                cleanString(item.degree),
 
               institution:
                 cleanString(
@@ -764,9 +658,7 @@ function LinkedInOptimizer() {
                 ),
 
               year:
-                cleanString(
-                  item.year
-                ),
+                cleanString(item.year),
             }))
             .filter(
               (item) =>
@@ -779,14 +671,10 @@ function LinkedInOptimizer() {
           profile.certifications
             .map((item) => ({
               name:
-                cleanString(
-                  item.name
-                ),
+                cleanString(item.name),
 
               issuer:
-                cleanString(
-                  item.issuer
-                ),
+                cleanString(item.issuer),
             }))
             .filter(
               (item) =>
@@ -798,9 +686,7 @@ function LinkedInOptimizer() {
           profile.projects
             .map((item) => ({
               name:
-                cleanString(
-                  item.name
-                ),
+                cleanString(item.name),
 
               description:
                 cleanString(
@@ -808,9 +694,7 @@ function LinkedInOptimizer() {
                 ),
 
               url:
-                cleanString(
-                  item.url
-                ),
+                cleanString(item.url),
             }))
             .filter(
               (item) =>
@@ -819,415 +703,425 @@ function LinkedInOptimizer() {
                 item.url
             ),
       };
-
-      return cleaned;
     };
 
   // ====================================================
   // ANALYZE PROFILE
   // ====================================================
 
-  const analyzeProfile =
-    async () => {
-      setError("");
-      setSuccess("");
-      setResult(null);
+  const analyzeProfile = async () => {
+    setError("");
+    setSuccess("");
+    setResult(null);
+    setShowSubscriptionModal(false);
 
-      const cleanedProfile =
-        buildCleanProfile();
+    const cleanedProfile =
+      buildCleanProfile();
 
-      // -----------------------------------------------
-      // LINKEDIN URL VALIDATION
-      // -----------------------------------------------
+    // -----------------------------------------------
+    // LINKEDIN URL VALIDATION
+    // -----------------------------------------------
 
-      if (
-        cleanedProfile.linkedinUrl &&
-        !isValidLinkedInUrl(
-          cleanedProfile.linkedinUrl
-        )
-      ) {
-        setError(
-          "Please enter a valid LinkedIn profile URL, for example: https://www.linkedin.com/in/username"
+    if (
+      cleanedProfile.linkedinUrl &&
+      !isValidLinkedInUrl(
+        cleanedProfile.linkedinUrl
+      )
+    ) {
+      setError(
+        "Please enter a valid LinkedIn profile URL, for example: https://www.linkedin.com/in/username"
+      );
+
+      return;
+    }
+
+    // -----------------------------------------------
+    // PROFILE DATA CHECK
+    // -----------------------------------------------
+
+    const hasProfileData =
+      Boolean(
+        cleanedProfile.linkedinUrl ||
+        cleanedProfile.fullName ||
+        cleanedProfile.headline ||
+        cleanedProfile.about ||
+        cleanedProfile.skills.length ||
+        cleanedProfile.experience.length ||
+        cleanedProfile.education.length ||
+        cleanedProfile.certifications.length ||
+        cleanedProfile.projects.length
+      );
+
+    if (!hasProfileData) {
+      setError(
+        "Please paste your LinkedIn profile URL or enter at least some profile information before analyzing."
+      );
+
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // ---------------------------------------------
+      // API REQUEST
+      // ---------------------------------------------
+
+      const response =
+        await fetch(
+          LINKEDIN_ANALYZE_URL,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+              Accept:
+                "application/json",
+            },
+
+            credentials: "include",
+
+            body:
+              JSON.stringify(
+                cleanedProfile
+              ),
+          }
         );
 
-        return;
-      }
+      // ---------------------------------------------
+      // PARSE RESPONSE
+      // ---------------------------------------------
 
-      // -----------------------------------------------
-      // CHECK IF PROFILE HAS ANY DATA
-      // -----------------------------------------------
-
-      const hasProfileData =
-        Boolean(
-          cleanedProfile.linkedinUrl ||
-          cleanedProfile.fullName ||
-          cleanedProfile.headline ||
-          cleanedProfile.about ||
-          cleanedProfile.skills.length ||
-          cleanedProfile.experience.length ||
-          cleanedProfile.education.length ||
-          cleanedProfile.certifications.length ||
-          cleanedProfile.projects.length
-        );
-
-      if (!hasProfileData) {
-        setError(
-          "Please paste your LinkedIn profile URL or enter at least some profile information before analyzing."
-        );
-
-        return;
-      }
+      let data: ApiResponse;
 
       try {
-        setLoading(true);
+        data = await response.json();
+      } catch {
+        throw new Error(
+          "Backend returned an invalid response. Please check that the CareerPilot AI server is running correctly."
+        );
+      }
 
-        // ---------------------------------------------
-        // API REQUEST
-        // ---------------------------------------------
+      // ---------------------------------------------
+      // API ERROR
+      // ---------------------------------------------
 
-        const response =
-          await fetch(
-            LINKEDIN_ANALYZE_URL,
-            {
-              method: "POST",
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        throw new Error(
+          data.message ||
+            `Profile analysis failed with status ${response.status}.`
+        );
+      }
 
-              headers: {
-                "Content-Type":
-                  "application/json",
-                Accept:
-                  "application/json",
-              },
+      // ---------------------------------------------
+      // ANALYSIS CHECK
+      // ---------------------------------------------
 
-              credentials:
-                "include",
+      if (!data.analysis) {
+        throw new Error(
+          "The backend did not return an analysis result."
+        );
+      }
 
-              body:
-                JSON.stringify(
-                  cleanedProfile
-                ),
-            }
-          );
+      // ---------------------------------------------
+      // NORMALIZE ANALYSIS
+      // ---------------------------------------------
 
-        // ---------------------------------------------
-        // PARSE RESPONSE
-        // ---------------------------------------------
+      const normalizedResult:
+        AnalysisResult = {
+        profileScore:
+          clampScore(
+            Number(
+              data.analysis.profileScore
+            )
+          ),
 
-        let data: ApiResponse;
+        completenessScore:
+          clampScore(
+            Number(
+              data.analysis
+                .completenessScore
+            )
+          ),
 
-        try {
-          data =
-            await response.json();
-        } catch {
-          throw new Error(
-            "Backend returned an invalid response. Please check that the CareerPilot AI server is running correctly."
-          );
-        }
-
-        // ---------------------------------------------
-        // API ERROR
-        // ---------------------------------------------
-
-        if (
-          !response.ok ||
-          !data.success
-        ) {
-          throw new Error(
-            data.message ||
-              `Profile analysis failed with status ${response.status}.`
-          );
-        }
-
-        // ---------------------------------------------
-        // ANALYSIS CHECK
-        // ---------------------------------------------
-
-        if (
-          !data.analysis
-        ) {
-          throw new Error(
-            "The backend did not return an analysis result."
-          );
-        }
-
-        // ---------------------------------------------
-        // NORMALIZE ANALYSIS
-        // ---------------------------------------------
-
-        const normalizedResult: AnalysisResult =
-          {
-            profileScore:
+        sections: {
+          headline: {
+            score:
               clampScore(
                 Number(
                   data.analysis
-                    .profileScore
+                    .sections
+                    ?.headline
+                    ?.score
                 )
               ),
-
-            completenessScore:
-              clampScore(
-                Number(
-                  data.analysis
-                    .completenessScore
-                )
-              ),
-
-            sections: {
-              headline: {
-                score:
-                  clampScore(
-                    Number(
-                      data.analysis
-                        .sections
-                        ?.headline
-                        ?.score
-                    )
-                  ),
-
-                suggestions:
-                  Array.isArray(
-                    data.analysis
-                      .sections
-                      ?.headline
-                      ?.suggestions
-                  )
-                    ? data.analysis
-                        .sections
-                        .headline
-                        .suggestions
-                    : [],
-              },
-
-              about: {
-                score:
-                  clampScore(
-                    Number(
-                      data.analysis
-                        .sections
-                        ?.about
-                        ?.score
-                    )
-                  ),
-
-                suggestions:
-                  Array.isArray(
-                    data.analysis
-                      .sections
-                      ?.about
-                      ?.suggestions
-                  )
-                    ? data.analysis
-                        .sections
-                        .about
-                        .suggestions
-                    : [],
-              },
-
-              skills: {
-                score:
-                  clampScore(
-                    Number(
-                      data.analysis
-                        .sections
-                        ?.skills
-                        ?.score
-                    )
-                  ),
-
-                count:
-                  Number(
-                    data.analysis
-                      .sections
-                      ?.skills
-                      ?.count || 0
-                  ),
-
-                suggestions:
-                  Array.isArray(
-                    data.analysis
-                      .sections
-                      ?.skills
-                      ?.suggestions
-                  )
-                    ? data.analysis
-                        .sections
-                        .skills
-                        .suggestions
-                    : [],
-              },
-
-              experience: {
-                score:
-                  clampScore(
-                    Number(
-                      data.analysis
-                        .sections
-                        ?.experience
-                        ?.score
-                    )
-                  ),
-
-                count:
-                  Number(
-                    data.analysis
-                      .sections
-                      ?.experience
-                      ?.count || 0
-                  ),
-
-                suggestions:
-                  Array.isArray(
-                    data.analysis
-                      .sections
-                      ?.experience
-                      ?.suggestions
-                  )
-                    ? data.analysis
-                        .sections
-                        .experience
-                        .suggestions
-                    : [],
-              },
-
-              education: {
-                score:
-                  clampScore(
-                    Number(
-                      data.analysis
-                        .sections
-                        ?.education
-                        ?.score
-                    )
-                  ),
-
-                count:
-                  Number(
-                    data.analysis
-                      .sections
-                      ?.education
-                      ?.count || 0
-                  ),
-
-                suggestions:
-                  Array.isArray(
-                    data.analysis
-                      .sections
-                      ?.education
-                      ?.suggestions
-                  )
-                    ? data.analysis
-                        .sections
-                        .education
-                        .suggestions
-                    : [],
-              },
-
-              certifications: {
-                score:
-                  clampScore(
-                    Number(
-                      data.analysis
-                        .sections
-                        ?.certifications
-                        ?.score
-                    )
-                  ),
-
-                count:
-                  Number(
-                    data.analysis
-                      .sections
-                      ?.certifications
-                      ?.count || 0
-                  ),
-
-                suggestions:
-                  Array.isArray(
-                    data.analysis
-                      .sections
-                      ?.certifications
-                      ?.suggestions
-                  )
-                    ? data.analysis
-                        .sections
-                        .certifications
-                        .suggestions
-                    : [],
-              },
-            },
 
             suggestions:
               Array.isArray(
                 data.analysis
-                  .suggestions
+                  .sections
+                  ?.headline
+                  ?.suggestions
               )
                 ? data.analysis
+                    .sections
+                    .headline
                     .suggestions
                 : [],
+          },
 
-            analyzedAt:
-              data.analysis
-                .analyzedAt ||
-              new Date().toISOString(),
-          };
+          about: {
+            score:
+              clampScore(
+                Number(
+                  data.analysis
+                    .sections
+                    ?.about
+                    ?.score
+                )
+              ),
 
-        // ---------------------------------------------
-        // SAVE RESULT
-        // ---------------------------------------------
+            suggestions:
+              Array.isArray(
+                data.analysis
+                  .sections
+                  ?.about
+                  ?.suggestions
+              )
+                ? data.analysis
+                    .sections
+                    .about
+                    .suggestions
+                : [],
+          },
 
-        setProfile(
-          cleanedProfile
+          skills: {
+            score:
+              clampScore(
+                Number(
+                  data.analysis
+                    .sections
+                    ?.skills
+                    ?.score
+                )
+              ),
+
+            count:
+              Number(
+                data.analysis
+                  .sections
+                  ?.skills
+                  ?.count || 0
+              ),
+
+            suggestions:
+              Array.isArray(
+                data.analysis
+                  .sections
+                  ?.skills
+                  ?.suggestions
+              )
+                ? data.analysis
+                    .sections
+                    .skills
+                    .suggestions
+                : [],
+          },
+
+          experience: {
+            score:
+              clampScore(
+                Number(
+                  data.analysis
+                    .sections
+                    ?.experience
+                    ?.score
+                )
+              ),
+
+            count:
+              Number(
+                data.analysis
+                  .sections
+                  ?.experience
+                  ?.count || 0
+              ),
+
+            suggestions:
+              Array.isArray(
+                data.analysis
+                  .sections
+                  ?.experience
+                  ?.suggestions
+              )
+                ? data.analysis
+                    .sections
+                    .experience
+                    .suggestions
+                : [],
+          },
+
+          education: {
+            score:
+              clampScore(
+                Number(
+                  data.analysis
+                    .sections
+                    ?.education
+                    ?.score
+                )
+              ),
+
+            count:
+              Number(
+                data.analysis
+                  .sections
+                  ?.education
+                  ?.count || 0
+              ),
+
+            suggestions:
+              Array.isArray(
+                data.analysis
+                  .sections
+                  ?.education
+                  ?.suggestions
+              )
+                ? data.analysis
+                    .sections
+                    .education
+                    .suggestions
+                : [],
+          },
+
+          certifications: {
+            score:
+              clampScore(
+                Number(
+                  data.analysis
+                    .sections
+                    ?.certifications
+                    ?.score
+                )
+              ),
+
+            count:
+              Number(
+                data.analysis
+                  .sections
+                  ?.certifications
+                  ?.count || 0
+              ),
+
+            suggestions:
+              Array.isArray(
+                data.analysis
+                  .sections
+                  ?.certifications
+                  ?.suggestions
+              )
+                ? data.analysis
+                    .sections
+                    .certifications
+                    .suggestions
+                : [],
+          },
+        },
+
+        suggestions:
+          Array.isArray(
+            data.analysis.suggestions
+          )
+            ? data.analysis.suggestions
+            : [],
+
+        analyzedAt:
+          data.analysis.analyzedAt ||
+          new Date().toISOString(),
+      };
+
+      // ---------------------------------------------
+      // SAVE RESULT
+      // ---------------------------------------------
+
+      setProfile(cleanedProfile);
+      setResult(normalizedResult);
+
+      setSuccess(
+        "Your LinkedIn profile has been analyzed successfully."
+      );
+
+      // ---------------------------------------------
+      // CHECK SUBSCRIPTION AFTER ANALYSIS
+      // ---------------------------------------------
+
+      const subscribed =
+        await checkSubscription();
+
+      if (!subscribed) {
+        setShowSubscriptionModal(true);
+      }
+
+      // ---------------------------------------------
+      // SCROLL TO RESULT
+      // ---------------------------------------------
+
+      setTimeout(() => {
+        document
+          .getElementById(
+            "linkedin-analysis-results"
+          )
+          ?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+      }, 100);
+    } catch (err) {
+      console.error(
+        "LinkedIn analysis error:",
+        err
+      );
+
+      if (
+        err instanceof TypeError &&
+        err.message
+          .toLowerCase()
+          .includes("fetch")
+      ) {
+        setError(
+          `Unable to connect to CareerPilot AI backend. Make sure the backend is running on ${API_BASE_URL}.`
         );
-
-        setResult(
-          normalizedResult
+      } else if (
+        err instanceof Error
+      ) {
+        setError(err.message);
+      } else {
+        setError(
+          "Unable to analyze your LinkedIn profile. Please try again."
         );
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        setSuccess(
-          "Your LinkedIn profile has been analyzed successfully."
-        );
+  // ====================================================
+  // CLOSE / RECHECK SUBSCRIPTION
+  // ====================================================
 
-        // ---------------------------------------------
-        // SCROLL TO RESULT
-        // ---------------------------------------------
+  const handleSubscriptionClose =
+    async () => {
+      setShowSubscriptionModal(false);
 
-        setTimeout(() => {
-          document
-            .getElementById(
-              "linkedin-analysis-results"
-            )
-            ?.scrollIntoView({
-              behavior: "smooth",
-              block: "start",
-            });
-        }, 100);
-      } catch (err) {
-        console.error(
-          "LinkedIn analysis error:",
-          err
-        );
+      const subscribed =
+        await checkSubscription();
 
-        if (
-          err instanceof TypeError &&
-          err.message
-            .toLowerCase()
-            .includes("fetch")
-        ) {
-          setError(
-            `Unable to connect to CareerPilot AI backend. Make sure the backend is running on ${API_BASE_URL}.`
-          );
-        } else if (
-          err instanceof Error
-        ) {
-          setError(
-            err.message
-          );
-        } else {
-          setError(
-            "Unable to analyze your LinkedIn profile. Please try again."
-          );
-        }
-      } finally {
-        setLoading(false);
+      if (subscribed) {
+        setShowSubscriptionModal(false);
       }
     };
 
@@ -1237,23 +1131,17 @@ function LinkedInOptimizer() {
 
   return (
     <div className="min-h-screen w-full bg-slate-950 text-white px-4 py-6 md:px-8 lg:px-10">
-
       {/* ==================================================
           TOP BAR
       ================================================== */}
 
       <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-
         <div className="flex items-center gap-3">
-
           <div className="w-11 h-11 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-900/30">
-
             <FaLinkedin className="text-white text-xl" />
-
           </div>
 
           <div>
-
             <h1 className="text-xl font-bold">
               LinkedIn Optimizer
             </h1>
@@ -1261,9 +1149,7 @@ function LinkedInOptimizer() {
             <p className="text-xs text-slate-500">
               AI-powered profile improvement
             </p>
-
           </div>
-
         </div>
 
         <button
@@ -1292,46 +1178,32 @@ function LinkedInOptimizer() {
           <FaHome />
           Dashboard
         </button>
-
       </div>
 
       <main className="max-w-7xl mx-auto">
-
         {/* ==================================================
             HERO
         ================================================== */}
 
         <section className="text-center max-w-4xl mx-auto">
-
           <div className="inline-flex items-center gap-2 rounded-full bg-blue-500/10 border border-blue-500/20 px-5 py-2 text-blue-400 text-sm font-medium">
-
             <FaLinkedin />
-
             AI Powered LinkedIn Analysis
-
           </div>
 
           <h2 className="mt-6 text-4xl md:text-6xl font-bold">
-
             Optimize Your{" "}
-
             <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-
               LinkedIn Profile
-
             </span>
-
           </h2>
 
           <p className="mt-5 text-lg text-slate-400 leading-8">
-
             Connect your LinkedIn account or enter your
             profile information manually. CareerPilot AI
             will analyze your profile and provide targeted
             improvement suggestions.
-
           </p>
-
         </section>
 
         {/* ==================================================
@@ -1339,17 +1211,12 @@ function LinkedInOptimizer() {
         ================================================== */}
 
         <section className="mt-12 rounded-3xl border border-slate-800 bg-slate-900/80 p-5 sm:p-6 md:p-10 shadow-2xl">
-
           <div className="flex items-center gap-3 mb-8">
-
             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center flex-shrink-0">
-
               <FaUserTie className="text-blue-400 text-xl" />
-
             </div>
 
             <div>
-
               <h3 className="text-2xl font-bold">
                 Your LinkedIn Profile
               </h3>
@@ -1357,9 +1224,7 @@ function LinkedInOptimizer() {
               <p className="text-sm text-slate-500 mt-1">
                 Use your real information for a meaningful analysis.
               </p>
-
             </div>
-
           </div>
 
           {/* ==================================================
@@ -1367,20 +1232,16 @@ function LinkedInOptimizer() {
           ================================================== */}
 
           <div>
-
             <label className="block text-sm font-semibold text-slate-300 mb-2">
               LinkedIn Profile URL
             </label>
 
             <div className="relative">
-
               <FaLinkedin className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-400" />
 
               <input
                 type="url"
-                value={
-                  profile.linkedinUrl
-                }
+                value={profile.linkedinUrl}
                 onChange={(e) =>
                   updateField(
                     "linkedinUrl",
@@ -1405,7 +1266,6 @@ function LinkedInOptimizer() {
                   focus:ring-blue-500/20
                 "
               />
-
             </div>
 
             <p className="mt-2 text-xs text-slate-500">
@@ -1417,9 +1277,7 @@ function LinkedInOptimizer() {
             ================================================== */}
 
             <div className="mt-5">
-
               <div className="relative flex items-center py-2">
-
                 <div className="flex-grow border-t border-slate-800" />
 
                 <span className="px-4 text-xs text-slate-600">
@@ -1427,17 +1285,12 @@ function LinkedInOptimizer() {
                 </span>
 
                 <div className="flex-grow border-t border-slate-800" />
-
               </div>
 
               <button
                 type="button"
-                onClick={
-                  connectLinkedIn
-                }
-                disabled={
-                  linkedinConnecting
-                }
+                onClick={connectLinkedIn}
+                disabled={linkedinConnecting}
                 className="
                   mt-4
                   w-full
@@ -1460,7 +1313,6 @@ function LinkedInOptimizer() {
                   disabled:cursor-not-allowed
                 "
               >
-
                 <FaLinkedin className="text-xl" />
 
                 {linkedinConnecting
@@ -1468,19 +1320,14 @@ function LinkedInOptimizer() {
                   : linkedinConnected
                   ? "LinkedIn Connected ✓"
                   : "Connect LinkedIn Account"}
-
               </button>
 
               <p className="mt-2 text-center text-xs text-slate-500">
-
                 {linkedinConnected
                   ? "LinkedIn authorization completed successfully."
                   : "You will be redirected to LinkedIn to authorize CareerPilot AI."}
-
               </p>
-
             </div>
-
           </div>
 
           {/* ==================================================
@@ -1488,18 +1335,14 @@ function LinkedInOptimizer() {
           ================================================== */}
 
           <div className="grid md:grid-cols-2 gap-6 mt-8">
-
             <div>
-
               <label className="block text-sm font-semibold text-slate-300 mb-2">
                 Full Name
               </label>
 
               <input
                 type="text"
-                value={
-                  profile.fullName
-                }
+                value={profile.fullName}
                 onChange={(e) =>
                   updateField(
                     "fullName",
@@ -1521,20 +1364,16 @@ function LinkedInOptimizer() {
                   placeholder:text-slate-600
                 "
               />
-
             </div>
 
             <div>
-
               <label className="block text-sm font-semibold text-slate-300 mb-2">
                 Professional Headline
               </label>
 
               <input
                 type="text"
-                value={
-                  profile.headline
-                }
+                value={profile.headline}
                 onChange={(e) =>
                   updateField(
                     "headline",
@@ -1556,9 +1395,7 @@ function LinkedInOptimizer() {
                   placeholder:text-slate-600
                 "
               />
-
             </div>
-
           </div>
 
           {/* ==================================================
@@ -1566,16 +1403,13 @@ function LinkedInOptimizer() {
           ================================================== */}
 
           <div className="mt-6">
-
             <label className="block text-sm font-semibold text-slate-300 mb-2">
               About
             </label>
 
             <textarea
               rows={7}
-              value={
-                profile.about
-              }
+              value={profile.about}
               onChange={(e) =>
                 updateField(
                   "about",
@@ -1600,7 +1434,6 @@ function LinkedInOptimizer() {
             />
 
             <div className="mt-2 flex justify-between text-xs text-slate-500">
-
               <span>
                 Professional summary
               </span>
@@ -1608,9 +1441,7 @@ function LinkedInOptimizer() {
               <span>
                 {profile.about.length} characters
               </span>
-
             </div>
-
           </div>
 
           {/* ==================================================
@@ -1618,17 +1449,13 @@ function LinkedInOptimizer() {
           ================================================== */}
 
           <div className="mt-10">
-
             <div className="flex items-center justify-between mb-4">
-
               <div className="flex items-center gap-3">
-
                 <FaChartLine className="text-blue-400" />
 
                 <h3 className="text-xl font-bold">
                   Skills
                 </h3>
-
               </div>
 
               <button
@@ -1647,23 +1474,17 @@ function LinkedInOptimizer() {
                   transition
                 "
               >
-
                 <FaPlus />
-
               </button>
-
             </div>
 
             <div className="space-y-3">
-
               {profile.skills.map(
                 (skill, index) => (
-
                   <div
                     key={`skill-${index}`}
                     className="flex gap-3"
                   >
-
                     <input
                       type="text"
                       value={skill}
@@ -1693,9 +1514,7 @@ function LinkedInOptimizer() {
                     <button
                       type="button"
                       onClick={() =>
-                        removeSkill(
-                          index
-                        )
+                        removeSkill(index)
                       }
                       aria-label={`Remove skill ${index + 1}`}
                       className="
@@ -1708,18 +1527,12 @@ function LinkedInOptimizer() {
                         transition
                       "
                     >
-
                       <FaTrash className="mx-auto" />
-
                     </button>
-
                   </div>
-
                 )
               )}
-
             </div>
-
           </div>
 
           {/* ==================================================
@@ -1727,24 +1540,18 @@ function LinkedInOptimizer() {
           ================================================== */}
 
           <div className="mt-10">
-
             <div className="flex items-center justify-between mb-4">
-
               <div className="flex items-center gap-3">
-
                 <FaBriefcase className="text-purple-400" />
 
                 <h3 className="text-xl font-bold">
                   Experience
                 </h3>
-
               </div>
 
               <button
                 type="button"
-                onClick={
-                  addExperience
-                }
+                onClick={addExperience}
                 aria-label="Add experience"
                 className="
                   w-10
@@ -1758,21 +1565,13 @@ function LinkedInOptimizer() {
                   transition
                 "
               >
-
                 <FaPlus />
-
               </button>
-
             </div>
 
             <div className="space-y-6">
-
               {profile.experience.map(
-                (
-                  experience,
-                  index
-                ) => (
-
+                (experience, index) => (
                   <div
                     key={`experience-${index}`}
                     className="
@@ -1783,9 +1582,7 @@ function LinkedInOptimizer() {
                       p-5
                     "
                   >
-
                     <div className="flex justify-between items-center mb-4">
-
                       <span className="text-sm text-slate-500">
                         Experience #{index + 1}
                       </span>
@@ -1800,15 +1597,11 @@ function LinkedInOptimizer() {
                         aria-label={`Remove experience ${index + 1}`}
                         className="text-red-400 hover:text-red-300"
                       >
-
                         <FaTrash />
-
                       </button>
-
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
-
                       <input
                         type="text"
                         value={
@@ -1887,7 +1680,6 @@ function LinkedInOptimizer() {
                           focus:border-purple-500
                         "
                       />
-
                     </div>
 
                     <textarea
@@ -1918,14 +1710,10 @@ function LinkedInOptimizer() {
                         focus:border-purple-500
                       "
                     />
-
                   </div>
-
                 )
               )}
-
             </div>
-
           </div>
 
           {/* ==================================================
@@ -1933,24 +1721,18 @@ function LinkedInOptimizer() {
           ================================================== */}
 
           <div className="mt-10">
-
             <div className="flex items-center justify-between mb-4">
-
               <div className="flex items-center gap-3">
-
                 <FaGraduationCap className="text-cyan-400" />
 
                 <h3 className="text-xl font-bold">
                   Education
                 </h3>
-
               </div>
 
               <button
                 type="button"
-                onClick={
-                  addEducation
-                }
+                onClick={addEducation}
                 aria-label="Add education"
                 className="
                   w-10
@@ -1964,21 +1746,13 @@ function LinkedInOptimizer() {
                   transition
                 "
               >
-
                 <FaPlus />
-
               </button>
-
             </div>
 
             <div className="space-y-4">
-
               {profile.education.map(
-                (
-                  education,
-                  index
-                ) => (
-
+                (education, index) => (
                   <div
                     key={`education-${index}`}
                     className="
@@ -1989,9 +1763,7 @@ function LinkedInOptimizer() {
                       p-5
                     "
                   >
-
                     <div className="grid md:grid-cols-3 gap-4">
-
                       <input
                         type="text"
                         value={
@@ -2045,7 +1817,6 @@ function LinkedInOptimizer() {
                       />
 
                       <div className="flex gap-3">
-
                         <input
                           type="text"
                           value={
@@ -2091,22 +1862,14 @@ function LinkedInOptimizer() {
                             hover:bg-red-500/20
                           "
                         >
-
                           <FaTrash className="mx-auto" />
-
                         </button>
-
                       </div>
-
                     </div>
-
                   </div>
-
                 )
               )}
-
             </div>
-
           </div>
 
           {/* ==================================================
@@ -2114,17 +1877,13 @@ function LinkedInOptimizer() {
           ================================================== */}
 
           <div className="mt-10">
-
             <div className="flex items-center justify-between mb-4">
-
               <div className="flex items-center gap-3">
-
                 <FaCertificate className="text-yellow-400" />
 
                 <h3 className="text-xl font-bold">
                   Certifications
                 </h3>
-
               </div>
 
               <button
@@ -2145,21 +1904,16 @@ function LinkedInOptimizer() {
                   transition
                 "
               >
-
                 <FaPlus />
-
               </button>
-
             </div>
 
             <div className="space-y-4">
-
               {profile.certifications.map(
                 (
                   certification,
                   index
                 ) => (
-
                   <div
                     key={`certification-${index}`}
                     className="
@@ -2169,7 +1923,6 @@ function LinkedInOptimizer() {
                       gap-3
                     "
                   >
-
                     <input
                       type="text"
                       value={
@@ -2242,18 +1995,12 @@ function LinkedInOptimizer() {
                         hover:bg-red-500/20
                       "
                     >
-
                       <FaTrash className="mx-auto" />
-
                     </button>
-
                   </div>
-
                 )
               )}
-
             </div>
-
           </div>
 
           {/* ==================================================
@@ -2261,17 +2008,13 @@ function LinkedInOptimizer() {
           ================================================== */}
 
           <div className="mt-10">
-
             <div className="flex items-center justify-between mb-4">
-
               <div className="flex items-center gap-3">
-
                 <FaBriefcase className="text-pink-400" />
 
                 <h3 className="text-xl font-bold">
                   Projects
                 </h3>
-
               </div>
 
               <button
@@ -2290,29 +2033,18 @@ function LinkedInOptimizer() {
                   transition
                 "
               >
-
                 <FaPlus />
-
               </button>
-
             </div>
 
             {profile.projects.length === 0 ? (
-
               <p className="text-sm text-slate-600">
                 Add projects to make your profile more complete.
               </p>
-
             ) : (
-
               <div className="space-y-5">
-
                 {profile.projects.map(
-                  (
-                    project,
-                    index
-                  ) => (
-
+                  (project, index) => (
                     <div
                       key={`project-${index}`}
                       className="
@@ -2323,9 +2055,7 @@ function LinkedInOptimizer() {
                         p-5
                       "
                     >
-
                       <div className="flex justify-between items-center mb-4">
-
                         <span className="text-sm text-slate-500">
                           Project #{index + 1}
                         </span>
@@ -2340,15 +2070,11 @@ function LinkedInOptimizer() {
                           aria-label={`Remove project ${index + 1}`}
                           className="text-red-400 hover:text-red-300"
                         >
-
                           <FaTrash />
-
                         </button>
-
                       </div>
 
                       <div className="grid md:grid-cols-2 gap-4">
-
                         <input
                           type="text"
                           value={
@@ -2378,8 +2104,7 @@ function LinkedInOptimizer() {
                         <input
                           type="url"
                           value={
-                            project.url ||
-                            ""
+                            project.url || ""
                           }
                           onChange={(e) =>
                             updateProject(
@@ -2401,7 +2126,6 @@ function LinkedInOptimizer() {
                             focus:border-pink-500
                           "
                         />
-
                       </div>
 
                       <textarea
@@ -2432,16 +2156,11 @@ function LinkedInOptimizer() {
                           focus:border-pink-500
                         "
                       />
-
                     </div>
-
                   )
                 )}
-
               </div>
-
             )}
-
           </div>
 
           {/* ==================================================
@@ -2449,7 +2168,6 @@ function LinkedInOptimizer() {
           ================================================== */}
 
           {error && (
-
             <div
               role="alert"
               className="
@@ -2464,11 +2182,9 @@ function LinkedInOptimizer() {
                 p-5
               "
             >
-
               <FaExclamationTriangle className="text-red-400 mt-1 flex-shrink-0" />
 
               <div>
-
                 <p className="font-semibold text-red-300">
                   Something went wrong
                 </p>
@@ -2476,11 +2192,8 @@ function LinkedInOptimizer() {
                 <p className="mt-1 text-sm text-slate-400">
                   {error}
                 </p>
-
               </div>
-
             </div>
-
           )}
 
           {/* ==================================================
@@ -2488,7 +2201,6 @@ function LinkedInOptimizer() {
           ================================================== */}
 
           {success && (
-
             <div
               role="status"
               className="
@@ -2503,11 +2215,9 @@ function LinkedInOptimizer() {
                 p-5
               "
             >
-
               <FaCheckCircle className="text-green-400 mt-1 flex-shrink-0" />
 
               <div>
-
                 <p className="font-semibold text-green-300">
                   Success
                 </p>
@@ -2515,11 +2225,8 @@ function LinkedInOptimizer() {
                 <p className="mt-1 text-sm text-slate-400">
                   {success}
                 </p>
-
               </div>
-
             </div>
-
           )}
 
           {/* ==================================================
@@ -2527,13 +2234,10 @@ function LinkedInOptimizer() {
           ================================================== */}
 
           <div className="mt-10 text-center">
-
             <button
               type="button"
               disabled={loading}
-              onClick={
-                analyzeProfile
-              }
+              onClick={analyzeProfile}
               className="
                 inline-flex
                 items-center
@@ -2559,21 +2263,17 @@ function LinkedInOptimizer() {
                 disabled:cursor-not-allowed
               "
             >
-
               <FaChartLine />
 
               {loading
                 ? "Analyzing Profile..."
                 : "Analyze My LinkedIn Profile"}
-
             </button>
 
             <p className="mt-4 text-xs text-slate-500">
               Your submitted information is sent securely to the CareerPilot AI backend for analysis.
             </p>
-
           </div>
-
         </section>
 
         {/* ==================================================
@@ -2581,317 +2281,546 @@ function LinkedInOptimizer() {
         ================================================== */}
 
         {result && (
-
           <section
             id="linkedin-analysis-results"
             className="mt-12 pb-16"
           >
-
             <div className="flex items-center gap-3 mb-7">
-
               <FaCheckCircle className="text-green-400 text-2xl flex-shrink-0" />
 
               <div>
-
                 <h2 className="text-3xl font-bold">
                   LinkedIn Profile Analysis
                 </h2>
 
                 <p className="text-sm text-slate-500 mt-1">
-
                   Analyzed{" "}
-
                   {result.analyzedAt
                     ? new Date(
                         result.analyzedAt
                       ).toLocaleString()
                     : "Just now"}
-
                 </p>
+              </div>
+            </div>
 
+            {/* ==================================================
+                FREE PREVIEW / FULL ACCESS
+            ================================================== */}
+
+            <div className="relative">
+              {/* ================================================
+                  VISIBLE PREVIEW
+                  Only these sections remain readable for
+                  unsubscribed users.
+              ================================================= */}
+
+              <div className="grid md:grid-cols-2 gap-5">
+                <ScoreCard
+                  title="Profile Score"
+                  score={result.profileScore}
+                  icon={<FaChartLine />}
+                />
+
+                <ScoreCard
+                  title="Completeness Score"
+                  score={
+                    result.completenessScore
+                  }
+                  icon={<FaCheckCircle />}
+                />
               </div>
 
-            </div>
+              {/* ==================================================
+                  HEADLINE = FINAL FREE PREVIEW SECTION
+              ================================================== */}
 
-            {/* ==================================================
-                SCORE CARDS
-            ================================================== */}
-
-            <div className="grid md:grid-cols-2 gap-5">
-
-              <ScoreCard
-                title="Profile Score"
-                score={
-                  result.profileScore
-                }
-                icon={
-                  <FaChartLine />
-                }
-              />
-
-              <ScoreCard
-                title="Completeness Score"
-                score={
-                  result.completenessScore
-                }
-                icon={
-                  <FaCheckCircle />
-                }
-              />
-
-            </div>
-
-            {/* ==================================================
-                SECTION ANALYSIS
-            ================================================== */}
-
-            <div className="mt-8 grid md:grid-cols-2 gap-6">
-
-              <AnalysisCard
-                title="Headline"
-                score={
-                  result.sections
-                    .headline.score
-                }
-                suggestions={
-                  result.sections
-                    .headline
-                    .suggestions
-                }
-              />
-
-              <AnalysisCard
-                title="About"
-                score={
-                  result.sections
-                    .about.score
-                }
-                suggestions={
-                  result.sections
-                    .about
-                    .suggestions
-                }
-              />
-
-              <AnalysisCard
-                title="Skills"
-                score={
-                  result.sections
-                    .skills.score
-                }
-                count={
-                  result.sections
-                    .skills.count
-                }
-                suggestions={
-                  result.sections
-                    .skills
-                    .suggestions
-                }
-              />
-
-              <AnalysisCard
-                title="Experience"
-                score={
-                  result.sections
-                    .experience
-                    .score
-                }
-                count={
-                  result.sections
-                    .experience
-                    .count
-                }
-                suggestions={
-                  result.sections
-                    .experience
-                    .suggestions
-                }
-              />
-
-              <AnalysisCard
-                title="Education"
-                score={
-                  result.sections
-                    .education.score
-                }
-                count={
-                  result.sections
-                    .education.count
-                }
-                suggestions={
-                  result.sections
-                    .education
-                    .suggestions
-                }
-              />
-
-              <AnalysisCard
-                title="Certifications"
-                score={
-                  result.sections
-                    .certifications
-                    .score
-                }
-                count={
-                  result.sections
-                    .certifications
-                    .count
-                }
-                suggestions={
-                  result.sections
-                    .certifications
-                    .suggestions
-                }
-              />
-
-            </div>
-
-            {/* ==================================================
-                OVERALL SUGGESTIONS
-            ================================================== */}
-
-            <div
-              className="
-                mt-8
-                rounded-3xl
-                border
-                border-slate-800
-                bg-slate-900
-                p-7
-              "
-            >
-
-              <div className="flex items-center gap-3">
-
-                <div
-                  className="
-                    w-11
-                    h-11
-                    rounded-xl
-                    bg-yellow-500/10
-                    flex
-                    items-center
-                    justify-center
-                    flex-shrink-0
-                  "
-                >
-
-                  <FaLightbulb className="text-yellow-400" />
-
-                </div>
-
-                <div>
-
-                  <h3 className="text-2xl font-bold">
-                    Priority Improvements
-                  </h3>
-
-                  <p className="text-sm text-slate-500 mt-1">
-                    Suggestions generated from your submitted profile data.
-                  </p>
-
-                </div>
-
+              <div className="mt-8">
+                <AnalysisCard
+                  title="Headline"
+                  score={
+                    result.sections
+                      .headline.score
+                  }
+                  suggestions={
+                    result.sections
+                      .headline.suggestions
+                  }
+                />
               </div>
 
-              <div className="mt-6 space-y-3">
+              {/* ==================================================
+                  PREMIUM CONTENT
+              ================================================== */}
 
-                {result.suggestions.length >
-                0 ? (
+              <div
+                className={
+                  isSubscribed
+                    ? "mt-8"
+                    : `
+                      relative
+                      mt-8
+                      overflow-hidden
+                      rounded-3xl
+                    `
+                }
+              >
+                {!isSubscribed ? (
+                  <>
+                    {/* Blurred premium content */}
+                    <div
+                      aria-hidden="true"
+                      className="
+                        select-none
+                        pointer-events-none
+                        blur-[7px]
+                        opacity-45
+                      "
+                    >
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <AnalysisCard
+                          title="About"
+                          score={
+                            result.sections
+                              .about.score
+                          }
+                          suggestions={
+                            result.sections
+                              .about.suggestions
+                          }
+                        />
 
-                  result.suggestions.map(
-                    (
-                      suggestion,
-                      index
-                    ) => (
+                        <AnalysisCard
+                          title="Skills"
+                          score={
+                            result.sections
+                              .skills.score
+                          }
+                          count={
+                            result.sections
+                              .skills.count
+                          }
+                          suggestions={
+                            result.sections
+                              .skills.suggestions
+                          }
+                        />
 
-                      <div
-                        key={`suggestion-${index}`}
-                        className="
-                          flex
-                          gap-3
-                          rounded-xl
-                          border
-                          border-slate-800
-                          bg-slate-950
-                          p-4
-                        "
-                      >
+                        <AnalysisCard
+                          title="Experience"
+                          score={
+                            result.sections
+                              .experience.score
+                          }
+                          count={
+                            result.sections
+                              .experience.count
+                          }
+                          suggestions={
+                            result.sections
+                              .experience.suggestions
+                          }
+                        />
 
-                        <span className="font-bold text-blue-400 flex-shrink-0">
-                          {index + 1}.
-                        </span>
+                        <AnalysisCard
+                          title="Education"
+                          score={
+                            result.sections
+                              .education.score
+                          }
+                          count={
+                            result.sections
+                              .education.count
+                          }
+                          suggestions={
+                            result.sections
+                              .education.suggestions
+                          }
+                        />
 
-                        <p className="text-slate-300">
-                          {suggestion}
-                        </p>
-
+                        <AnalysisCard
+                          title="Certifications"
+                          score={
+                            result.sections
+                              .certifications
+                              .score
+                          }
+                          count={
+                            result.sections
+                              .certifications
+                              .count
+                          }
+                          suggestions={
+                            result.sections
+                              .certifications
+                              .suggestions
+                          }
+                        />
                       </div>
 
-                    )
-                  )
+                      <div
+                        className="
+                          mt-8
+                          rounded-3xl
+                          border
+                          border-slate-800
+                          bg-slate-900
+                          p-7
+                        "
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="
+                              w-11
+                              h-11
+                              rounded-xl
+                              bg-yellow-500/10
+                              flex
+                              items-center
+                              justify-center
+                              flex-shrink-0
+                            "
+                          >
+                            <FaLightbulb className="text-yellow-400" />
+                          </div>
 
+                          <div>
+                            <h3 className="text-2xl font-bold">
+                              Priority Improvements
+                            </h3>
+
+                            <p className="text-sm text-slate-500 mt-1">
+                              Suggestions generated from your submitted profile data.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-6 space-y-3">
+                          {result.suggestions.length >
+                          0 ? (
+                            result.suggestions.map(
+                              (
+                                suggestion,
+                                index
+                              ) => (
+                                <div
+                                  key={`suggestion-${index}`}
+                                  className="
+                                    flex
+                                    gap-3
+                                    rounded-xl
+                                    border
+                                    border-slate-800
+                                    bg-slate-950
+                                    p-4
+                                  "
+                                >
+                                  <span className="font-bold text-blue-400 flex-shrink-0">
+                                    {index + 1}.
+                                  </span>
+
+                                  <p className="text-slate-300">
+                                    {suggestion}
+                                  </p>
+                                </div>
+                              )
+                            )
+                          ) : (
+                            <div className="flex items-center gap-2 text-green-400">
+                              <FaCheckCircle />
+                              <span>
+                                No additional suggestions were returned.
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {profile.linkedinUrl && (
+                        <div className="mt-6 text-center">
+                          <span className="inline-flex items-center gap-2 text-blue-400">
+                            <FaLinkedin />
+                            Open LinkedIn Profile
+                            <FaExternalLinkAlt className="text-xs" />
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ==========================================
+                        LOCKED AREA LABEL
+                    ========================================== */}
+
+                    <div
+                      className="
+                        absolute
+                        inset-0
+                        flex
+                        items-center
+                        justify-center
+                        pointer-events-none
+                      "
+                    >
+                      <div
+                        className="
+                          rounded-2xl
+                          border
+                          border-blue-400/30
+                          bg-slate-950/85
+                          px-6
+                          py-5
+                          text-center
+                          shadow-2xl
+                          backdrop-blur-md
+                        "
+                      >
+                        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/10">
+                          <FaLock className="text-blue-400 text-lg" />
+                        </div>
+
+                        <p className="text-lg font-bold text-white">
+                          Full LinkedIn Analysis Locked
+                        </p>
+
+                        <p className="mt-1 text-sm text-slate-400">
+                          Subscribe to unlock your complete profile analysis.
+                        </p>
+                      </div>
+                    </div>
+                  </>
                 ) : (
+                  <>
+                    {/* ==========================================
+                        FULL ACCESS FOR SUBSCRIBERS
+                    ========================================== */}
 
-                  <div className="flex items-center gap-2 text-green-400">
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <AnalysisCard
+                        title="About"
+                        score={
+                          result.sections
+                            .about.score
+                        }
+                        suggestions={
+                          result.sections
+                            .about.suggestions
+                        }
+                      />
 
-                    <FaCheckCircle />
+                      <AnalysisCard
+                        title="Skills"
+                        score={
+                          result.sections
+                            .skills.score
+                        }
+                        count={
+                          result.sections
+                            .skills.count
+                        }
+                        suggestions={
+                          result.sections
+                            .skills.suggestions
+                        }
+                      />
 
-                    <span>
-                      No additional suggestions were returned.
-                    </span>
+                      <AnalysisCard
+                        title="Experience"
+                        score={
+                          result.sections
+                            .experience.score
+                        }
+                        count={
+                          result.sections
+                            .experience.count
+                        }
+                        suggestions={
+                          result.sections
+                            .experience
+                            .suggestions
+                        }
+                      />
 
-                  </div>
+                      <AnalysisCard
+                        title="Education"
+                        score={
+                          result.sections
+                            .education.score
+                        }
+                        count={
+                          result.sections
+                            .education.count
+                        }
+                        suggestions={
+                          result.sections
+                            .education
+                            .suggestions
+                        }
+                      />
 
+                      <AnalysisCard
+                        title="Certifications"
+                        score={
+                          result.sections
+                            .certifications
+                            .score
+                        }
+                        count={
+                          result.sections
+                            .certifications
+                            .count
+                        }
+                        suggestions={
+                          result.sections
+                            .certifications
+                            .suggestions
+                        }
+                      />
+                    </div>
+
+                    {/* ==========================================
+                        OVERALL SUGGESTIONS
+                    ========================================== */}
+
+                    <div
+                      className="
+                        mt-8
+                        rounded-3xl
+                        border
+                        border-slate-800
+                        bg-slate-900
+                        p-7
+                      "
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="
+                            w-11
+                            h-11
+                            rounded-xl
+                            bg-yellow-500/10
+                            flex
+                            items-center
+                            justify-center
+                            flex-shrink-0
+                          "
+                        >
+                          <FaLightbulb className="text-yellow-400" />
+                        </div>
+
+                        <div>
+                          <h3 className="text-2xl font-bold">
+                            Priority Improvements
+                          </h3>
+
+                          <p className="text-sm text-slate-500 mt-1">
+                            Suggestions generated from your submitted profile data.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 space-y-3">
+                        {result.suggestions.length >
+                        0 ? (
+                          result.suggestions.map(
+                            (
+                              suggestion,
+                              index
+                            ) => (
+                              <div
+                                key={`suggestion-${index}`}
+                                className="
+                                  flex
+                                  gap-3
+                                  rounded-xl
+                                  border
+                                  border-slate-800
+                                  bg-slate-950
+                                  p-4
+                                "
+                              >
+                                <span className="font-bold text-blue-400 flex-shrink-0">
+                                  {index + 1}.
+                                </span>
+
+                                <p className="text-slate-300">
+                                  {suggestion}
+                                </p>
+                              </div>
+                            )
+                          )
+                        ) : (
+                          <div className="flex items-center gap-2 text-green-400">
+                            <FaCheckCircle />
+
+                            <span>
+                              No additional suggestions were returned.
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ==========================================
+                        PROFILE URL
+                    ========================================== */}
+
+                    {profile.linkedinUrl && (
+                      <div className="mt-6 text-center">
+                        <a
+                          href={
+                            profile.linkedinUrl
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="
+                            inline-flex
+                            items-center
+                            gap-2
+                            text-blue-400
+                            hover:text-blue-300
+                            transition
+                          "
+                        >
+                          <FaLinkedin />
+
+                          Open LinkedIn Profile
+
+                          <FaExternalLinkAlt className="text-xs" />
+                        </a>
+                      </div>
+                    )}
+                  </>
                 )}
-
               </div>
-
             </div>
 
             {/* ==================================================
-                PROFILE URL
+                SUBSCRIPTION MODAL
             ================================================== */}
 
-            {profile.linkedinUrl && (
-
-              <div className="mt-6 text-center">
-
-                <a
-                  href={
-                    profile.linkedinUrl
+            {showSubscriptionModal &&
+              result &&
+              !isSubscribed && (
+                <SubscriptionModal
+                  featureName="LinkedIn Optimizer"
+                  onClose={
+                    handleSubscriptionClose
                   }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="
-                    inline-flex
-                    items-center
-                    gap-2
-                    text-blue-400
-                    hover:text-blue-300
-                    transition
-                  "
-                >
+                />
+              )}
 
-                  <FaLinkedin />
+            {/* ==================================================
+                SUBSCRIPTION CHECK MESSAGE
+            ================================================== */}
 
-                  Open LinkedIn Profile
-
-                  <FaExternalLinkAlt className="text-xs" />
-
-                </a>
-
+            {checkingSubscription && (
+              <div className="mt-4 text-center text-xs text-slate-500">
+                Checking your subscription status...
               </div>
-
             )}
-
           </section>
-
         )}
-
       </main>
-
     </div>
   );
 }
@@ -2911,8 +2840,7 @@ function ScoreCard({
   score,
   icon,
 }: ScoreCardProps) {
-  const safeScore =
-    clampScore(score);
+  const safeScore = clampScore(score);
 
   return (
     <div
@@ -2924,11 +2852,8 @@ function ScoreCard({
         p-7
       "
     >
-
       <div className="flex items-center justify-between">
-
         <div>
-
           <p className="text-slate-400">
             {title}
           </p>
@@ -2936,17 +2861,14 @@ function ScoreCard({
           <p className="mt-2 text-5xl font-bold text-blue-400">
             {safeScore}%
           </p>
-
         </div>
 
         <div className="text-blue-400 text-4xl">
           {icon}
         </div>
-
       </div>
 
       <div className="mt-6 h-2 rounded-full bg-slate-800 overflow-hidden">
-
         <div
           className="
             h-full
@@ -2958,13 +2880,10 @@ function ScoreCard({
             duration-700
           "
           style={{
-            width:
-              `${safeScore}%`,
+            width: `${safeScore}%`,
           }}
         />
-
       </div>
-
     </div>
   );
 }
@@ -2986,8 +2905,7 @@ function AnalysisCard({
   count,
   suggestions,
 }: AnalysisCardProps) {
-  const safeScore =
-    clampScore(score);
+  const safeScore = clampScore(score);
 
   return (
     <div
@@ -2999,30 +2917,18 @@ function AnalysisCard({
         p-7
       "
     >
-
       <div className="flex items-start justify-between gap-4">
-
         <div>
-
           <h3 className="text-xl font-bold">
             {title}
           </h3>
 
-          {typeof count ===
-            "number" && (
-
+          {typeof count === "number" && (
             <p className="mt-1 text-sm text-slate-500">
-
               {count} item
-              {count === 1
-                ? ""
-                : "s"}{" "}
-              found
-
+              {count === 1 ? "" : "s"} found
             </p>
-
           )}
-
         </div>
 
         <div
@@ -3038,7 +2944,6 @@ function AnalysisCard({
         >
           {safeScore}%
         </div>
-
       </div>
 
       <div
@@ -3050,7 +2955,6 @@ function AnalysisCard({
           overflow-hidden
         "
       >
-
         <div
           className="
             h-full
@@ -3062,24 +2966,15 @@ function AnalysisCard({
             duration-700
           "
           style={{
-            width:
-              `${safeScore}%`,
+            width: `${safeScore}%`,
           }}
         />
-
       </div>
 
       <div className="mt-5 space-y-3">
-
-        {suggestions.length >
-        0 ? (
-
+        {suggestions.length > 0 ? (
           suggestions.map(
-            (
-              suggestion,
-              index
-            ) => (
-
+            (suggestion, index) => (
               <div
                 key={`${title}-suggestion-${index}`}
                 className="
@@ -3090,34 +2985,24 @@ function AnalysisCard({
                   p-3
                 "
               >
-
                 <FaLightbulb className="text-yellow-400 mt-1 flex-shrink-0" />
 
                 <p className="text-sm text-slate-400">
                   {suggestion}
                 </p>
-
               </div>
-
             )
           )
-
         ) : (
-
           <div className="flex items-center gap-2 text-green-400 text-sm">
-
             <FaCheckCircle />
 
             <span>
               No major issues detected.
             </span>
-
           </div>
-
         )}
-
       </div>
-
     </div>
   );
 }
