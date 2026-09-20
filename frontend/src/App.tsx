@@ -40,7 +40,24 @@ import ProtectedRoute from "./components/ProtectedRoute";
 function PageHomeButton() {
   const location = useLocation();
 
-  if (location.pathname === "/") {
+  const dashboardPaths = [
+    "/dashboard",
+    "/resume-analyzer",
+    "/opportunity-finder",
+    "/career-roadmap",
+    "/ai-interview",
+    "/linkedin-optimizer",
+    "/settings",
+    "/subscription",
+  ];
+
+  const isDashboardPage = dashboardPaths.some(
+    (path) =>
+      location.pathname === path ||
+      location.pathname.startsWith(path + "/")
+  );
+
+  if (location.pathname === "/" || isDashboardPage) {
     return null;
   }
 

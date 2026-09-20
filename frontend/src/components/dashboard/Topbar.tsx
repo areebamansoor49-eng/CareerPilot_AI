@@ -337,14 +337,17 @@ function Topbar({
     >
       <div
         className="
+          relative
           h-full
-          px-4
+          px-3
           sm:px-5
           lg:px-10
           flex
           items-center
           justify-between
-          gap-4
+          gap-2
+          sm:gap-3
+          min-w-0
         "
       >
 
@@ -352,7 +355,7 @@ function Topbar({
             LEFT
         ================================================= */}
 
-        <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4 lg:flex-none lg:relative">
 
           {/* MOBILE MENU */}
 
@@ -361,8 +364,13 @@ function Topbar({
             onClick={onMenuClick}
             className="
               lg:hidden
-              w-11
-              h-11
+              relative
+              z-50
+              w-10
+              h-10
+              shrink-0
+              sm:w-11
+              sm:h-11
               rounded-xl
               bg-slate-900
               border
@@ -383,7 +391,7 @@ function Topbar({
 
           {/* TITLE */}
 
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1 lg:flex-none pr-2 sm:pr-3 lg:pr-0">
 
             <h1
               className="
@@ -473,7 +481,7 @@ function Topbar({
             RIGHT
         ================================================= */}
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-3 lg:relative lg:flex-none">
 
           {/* =================================================
               HOME BUTTON
@@ -486,11 +494,14 @@ function Topbar({
             type="button"
             onClick={() => goTo("/")}
             className="
-              flex
+              hidden
+              lg:flex
+              shrink-0
               items-center
+              justify-center
               gap-2
               rounded-xl
-              px-3
+              px-2.5
               sm:px-4
               py-2.5
               bg-slate-900
