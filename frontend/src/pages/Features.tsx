@@ -73,7 +73,7 @@ const features: FeatureCard[] = [
   },
   {
     icon: <FaSearch />,
-    title: "opportunity Finder",
+    title: "Opportunity Finder",
     description:
       "Discover relevant  opportunities based on your skills, career interests, and target industry.",
     details: [
@@ -184,7 +184,7 @@ export default function Features() {
 
             <p className="mx-auto mt-6 max-w-3xl text-base leading-8 text-slate-400 md:text-lg">
               CareerPilot AI brings resume analysis, interview preparation,
-              career planning, internship discovery, and professional profile
+              career planning, opportunity discovery, and professional profile
               optimization together in one intelligent platform.
             </p>
           </div>

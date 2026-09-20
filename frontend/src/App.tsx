@@ -8,19 +8,11 @@ import {
 } from "react-router-dom";
 import type { ReactNode } from "react";
 
-/* =========================================================
-   MAIN PAGES
-========================================================= */
-
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Demo from "./pages/Demo";
-
-/* =========================================================
-   DASHBOARD / CAREER PAGES
-========================================================= */
 
 import Profile from "./pages/Profile";
 import ResumeAnalyzer from "./pages/ResumeAnalyzer";
@@ -30,10 +22,6 @@ import OpportunityFinder from "./pages/OpportunityFinder";
 import LinkedInOptimizer from "./pages/LinkedInOptimizer";
 import Subscription from "./pages/Subscription";
 
-/* =========================================================
-   OTHER PAGES
-========================================================= */
-
 import Features from "./pages/Features";
 import About from "./pages/About";
 import Blog from "./pages/Blog";
@@ -41,12 +29,13 @@ import Community from "./pages/Community";
 import Contact from "./pages/Contact";
 import Documentation from "./pages/Documentation";
 import Privacy from "./pages/Privacy";
-import Terms from "./pages/Terms";
-import RefundPolicy from "./pages/RefundPolicy";
 import Settings from "./pages/Settings";
 
+import ProtectedRoute from "./components/ProtectedRoute";
+import PremiumRoute from "./components/PremiumRoute";
+
 /* =========================================================
-   PAGE HOME BUTTON
+   HOME BUTTON
 ========================================================= */
 
 function PageHomeButton() {
@@ -60,34 +49,12 @@ function PageHomeButton() {
     <Link
       to="/"
       aria-label="Go to Home"
-      className="
-        fixed
-        top-6
-        left-6
-        z-50
-        flex
-        items-center
-        gap-2
-        rounded-xl
-        border
-        border-white/10
-        bg-slate-900/80
-        px-5
-        py-2.5
-        text-sm
-        font-semibold
-        text-white
-        shadow-lg
-        backdrop-blur-md
-        transition-all
-        duration-300
-        hover:-translate-y-0.5
-        hover:border-blue-400/40
-        hover:bg-blue-600
-        hover:shadow-blue-500/20
-      "
+      className="fixed left-6 top-6 z-50 flex items-center gap-2 rounded-xl border border-white/10 bg-slate-900/80 px-5 py-2.5 text-sm font-semibold text-white shadow-lg backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-400/40 hover:bg-blue-600 hover:shadow-blue-500/20"
     >
-      <span className="text-lg" aria-hidden="true">
+      <span
+        className="text-lg"
+        aria-hidden="true"
+      >
         ←
       </span>
 
@@ -114,6 +81,48 @@ function PageLayout({
 }
 
 /* =========================================================
+   PROTECTED PAGE
+   Login required
+========================================================= */
+
+function ProtectedPage({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <PageLayout>
+      <ProtectedRoute>
+        {children}
+      </ProtectedRoute>
+    </PageLayout>
+  );
+}
+
+/* =========================================================
+   PREMIUM PAGE
+   Login + active subscription required
+========================================================= */
+
+function PremiumPage({
+  children,
+  featureName,
+}: {
+  children: ReactNode;
+  featureName: string;
+}) {
+  return (
+    <ProtectedRoute>
+      <PremiumRoute featureName={featureName}>
+        <PageLayout>
+          {children}
+        </PageLayout>
+      </PremiumRoute>
+    </ProtectedRoute>
+  );
+}
+
+/* =========================================================
    APP
 ========================================================= */
 
@@ -122,14 +131,13 @@ function App() {
     <BrowserRouter>
       <Routes>
         {/* =================================================
-            HOME
+            PUBLIC ROUTES
         ================================================= */}
 
-        <Route path="/" element={<Home />} />
-
-        {/* =================================================
-            AUTHENTICATION
-        ================================================= */}
+        <Route
+          path="/"
+          element={<Home />}
+        />
 
         <Route
           path="/login"
@@ -149,10 +157,6 @@ function App() {
           }
         />
 
-        {/* =================================================
-            DEMO
-        ================================================= */}
-
         <Route
           path="/demo"
           element={
@@ -161,155 +165,6 @@ function App() {
             </PageLayout>
           }
         />
-
-        {/* =================================================
-            DASHBOARD
-        ================================================= */}
-
-        <Route
-          path="/dashboard"
-          element={
-            <PageLayout>
-              <Dashboard />
-            </PageLayout>
-          }
-        />
-
-        {/* =================================================
-            PROFILE
-        ================================================= */}
-
-        <Route
-          path="/profile"
-          element={
-            <PageLayout>
-              <Profile />
-            </PageLayout>
-          }
-        />
-
-        {/* =================================================
-            RESUME ANALYZER
-        ================================================= */}
-
-        <Route
-          path="/resume-analyzer"
-          element={
-            <PageLayout>
-              <ResumeAnalyzer />
-            </PageLayout>
-          }
-        />
-
-        {/* =================================================
-            OPPORTUNITY FINDER
-        ================================================= */}
-
-        <Route
-          path="/opportunity-finder"
-          element={
-            <PageLayout>
-              <OpportunityFinder />
-            </PageLayout>
-          }
-        />
-
-        {/* =================================================
-            OLD INTERNSHIP FINDER ROUTE
-        ================================================= */}
-
-        <Route
-          path="/opportunity-finder"
-          element={
-            <Navigate
-              to="/opportunity-finder"
-              replace
-            />
-          }
-        />
-
-        {/* =================================================
-            CAREER ROADMAP
-        ================================================= */}
-
-        <Route
-          path="/career-roadmap"
-          element={
-            <PageLayout>
-              <CareerRoadmap />
-            </PageLayout>
-          }
-        />
-
-        {/* =================================================
-            AI INTERVIEW
-        ================================================= */}
-
-        <Route
-          path="/ai-interview"
-          element={
-            <PageLayout>
-              <AIInterview />
-            </PageLayout>
-          }
-        />
-
-        {/* =================================================
-            OLD AI INTERVIEW ROUTE
-        ================================================= */}
-
-        <Route
-          path="/ai-interviews"
-          element={
-            <Navigate
-              to="/ai-interview"
-              replace
-            />
-          }
-        />
-
-        {/* =================================================
-            LINKEDIN OPTIMIZER
-        ================================================= */}
-
-        <Route
-          path="/linkedin-optimizer"
-          element={
-            <PageLayout>
-              <LinkedInOptimizer />
-            </PageLayout>
-          }
-        />
-
-        {/* =================================================
-            SETTINGS
-        ================================================= */}
-
-        <Route
-          path="/settings"
-          element={
-            <PageLayout>
-              <Settings />
-            </PageLayout>
-          }
-        />
-
-        {/* =================================================
-            SUBSCRIPTION
-        ================================================= */}
-
-        <Route
-          path="/subscription"
-          element={
-            <PageLayout>
-              <Subscription />
-            </PageLayout>
-          }
-        />
-
-        {/* =================================================
-            GENERAL PAGES
-        ================================================= */}
 
         <Route
           path="/features"
@@ -373,23 +228,145 @@ function App() {
             </PageLayout>
           }
         />
-        <Route
-  path="/terms"
-  element={
-    <PageLayout>
-      <Terms />
-    </PageLayout>
-  }
-/>
 
-<Route
-  path="/refund-policy"
-  element={
-    <PageLayout>
-      <RefundPolicy />
-    </PageLayout>
-  }
-/>
+        {/* =================================================
+            AUTHENTICATED ROUTES
+            Login required
+        ================================================= */}
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedPage>
+              <Dashboard />
+            </ProtectedPage>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedPage>
+              <Profile />
+            </ProtectedPage>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <ProtectedPage>
+              <Settings />
+            </ProtectedPage>
+          }
+        />
+
+        {/* =================================================
+            OPPORTUNITY FINDER
+            FREE + LOGIN REQUIRED
+        ================================================= */}
+
+        <Route
+          path="/opportunity-finder"
+          element={
+            <ProtectedPage>
+              <OpportunityFinder />
+            </ProtectedPage>
+          }
+        />
+
+        {/* =================================================
+            LEGACY INTERNSHIP FINDER URL
+            Keep for backward compatibility
+        ================================================= */}
+
+        <Route
+          path="/internship-finder"
+          element={
+            <Navigate
+              to="/opportunity-finder"
+              replace
+            />
+          }
+        />
+
+        {/* =================================================
+            RESUME ANALYZER
+            Login required.
+
+            The existing ResumeAnalyzer page handles
+            its one-free-use/subscription logic.
+        ================================================= */}
+
+        <Route
+          path="/resume-analyzer"
+          element={
+            <ProtectedPage>
+              <ResumeAnalyzer />
+            </ProtectedPage>
+          }
+        />
+
+        {/* =================================================
+            PREMIUM FEATURES
+            Login + ACTIVE SUBSCRIPTION REQUIRED
+        ================================================= */}
+
+        <Route
+          path="/career-roadmap"
+          element={
+            <PremiumPage featureName="Career Roadmap">
+              <CareerRoadmap />
+            </PremiumPage>
+          }
+        />
+
+        <Route
+          path="/ai-interview"
+          element={
+            <PremiumPage featureName="AI Interview">
+              <AIInterview />
+            </PremiumPage>
+          }
+        />
+
+        <Route
+          path="/linkedin-optimizer"
+          element={
+            <PremiumPage featureName="LinkedIn Optimizer">
+              <LinkedInOptimizer />
+            </PremiumPage>
+          }
+        />
+
+        {/* =================================================
+            LEGACY AI INTERVIEW URL
+            Keep for backward compatibility
+        ================================================= */}
+
+        <Route
+          path="/ai-interviews"
+          element={
+            <Navigate
+              to="/ai-interview"
+              replace
+            />
+          }
+        />
+
+        {/* =================================================
+            SUBSCRIPTION
+            Login required
+        ================================================= */}
+
+        <Route
+          path="/subscription"
+          element={
+            <ProtectedPage>
+              <Subscription />
+            </ProtectedPage>
+          }
+        />
 
         {/* =================================================
             FALLBACK
@@ -397,7 +374,12 @@ function App() {
 
         <Route
           path="*"
-          element={<Navigate to="/" replace />}
+          element={
+            <Navigate
+              to="/"
+              replace
+            />
+          }
         />
       </Routes>
     </BrowserRouter>

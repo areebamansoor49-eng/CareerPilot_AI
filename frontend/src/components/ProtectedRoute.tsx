@@ -1,23 +1,26 @@
-import { Navigate } from "react-router-dom";
 import { ReactNode } from "react";
+import { Navigate, useLocation } from "react-router-dom";
 
 interface Props {
   children: ReactNode;
 }
 
 function ProtectedRoute({ children }: Props) {
-  // Check whether the user is authenticated
+  const location = useLocation();
   const user = localStorage.getItem("user");
 
-  // If user is NOT logged in,
-  // always redirect to the Home page.
-  // Do NOT redirect to /login because after logout
-  // the user should see the Home page.
   if (!user) {
-    return <Navigate to="/" replace />;
+    const redirectTo = `${location.pathname}${location.search}${location.hash}`;
+
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ redirectTo }}
+      />
+    );
   }
 
-  // User is authenticated → allow access
   return <>{children}</>;
 }
 

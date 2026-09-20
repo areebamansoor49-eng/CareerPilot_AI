@@ -33,7 +33,7 @@ interface TopbarProps {
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/resume-analyzer": "Resume Analyzer",
-  "/internship-finder": "Internship Finder",
+  "/opportunity-finder": "Opportunity Finder",
   "/career-roadmap": "Career Roadmap",
   "/ai-interview": "AI Interview",
   "/ai-interviews": "AI Interview",
@@ -188,7 +188,7 @@ function Topbar({
       query.includes("job") ||
       query.includes("opportunity")
     ) {
-      goTo("/internship-finder");
+      goTo("/opportunity-finder");
       return;
     }
 
@@ -695,7 +695,7 @@ function Topbar({
                   <button
                     type="button"
                     onClick={() =>
-                      goTo("/internship-finder")
+                      goTo("/opportunity-finder")
                     }
                     className="
                       w-full

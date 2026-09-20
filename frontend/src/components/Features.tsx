@@ -76,7 +76,7 @@ function Features() {
     },
     {
       icon: <FaSearch />,
-      title: "Internship Finder",
+      title: "Opportunity Finder",
       description:
         "Discover relevant internship opportunities based on your skills, career interests, and target industry.",
       details: [
@@ -85,7 +85,7 @@ function Features() {
         "Career-focused filtering",
         "Opportunity discovery",
       ],
-      path: "/internship-finder",
+      path: "/opportunity-finder",
       iconBg: "bg-green-500/10",
       iconColor: "text-green-400",
     },
@@ -181,7 +181,7 @@ function Features() {
             {/* DESCRIPTION */}
             <p className="mx-auto mt-6 max-w-3xl text-base leading-8 text-slate-400 md:text-lg">
               CareerPilot AI brings resume analysis, interview preparation,
-              career planning, internship discovery, and professional profile
+              career planning, opportunity discovery, and professional profile
               optimization together in one intelligent platform.
             </p>
           </div>

@@ -30,9 +30,9 @@ const menuItems = [
     path: "/resume-analyzer",
   },
   {
-    name: "Internship Finder",
+    name: "Opportunity Finder",
     icon: <FaBriefcase />,
-    path: "/internship-finder",
+    path: "/opportunity-finder",
   },
   {
     name: "Career Roadmap",

@@ -25,7 +25,6 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { canUseFeature } from "../utils/subscription";
 
 /* =========================================================
    TYPES
@@ -2141,16 +2140,6 @@ function AIInterviews() {
     setCheckingAccess(true);
 
     try {
-      const allowed =
-        await canUseFeature(
-          "aiInterview"
-        );
-
-      if (!allowed) {
-        navigate("/subscription");
-        return;
-      }
-
       let selectedQuestions: Question[];
 
       if (interviewType === "hr") {
@@ -2202,11 +2191,9 @@ function AIInterviews() {
       setStarted(true);
     } catch (error) {
       console.error(
-        "AI Interview access check failed:",
+        "AI Interview start failed:",
         error
       );
-
-      navigate("/subscription");
     } finally {
       setCheckingAccess(false);
     }
