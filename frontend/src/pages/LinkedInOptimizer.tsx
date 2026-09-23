@@ -99,7 +99,7 @@ interface ApiResponse {
 // ======================================================
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+  import.meta.env.VITE_API_URL || "https://career-pilot-backend-kappa.vercel.app";
 
 const LINKEDIN_LOGIN_URL =
   `${API_BASE_URL}/api/linkedin/login`;
