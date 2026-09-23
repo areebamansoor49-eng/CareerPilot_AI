@@ -26,18 +26,57 @@ const subscriptionSchema =
 
       plan: {
         type: String,
+        enum: [
+          "monthly",
+          "yearly",
+          "monthly subscription",
+          "yearly subscription",
+          "monthly plan",
+          "yearly plan",
+          null,
+        ],
         default: null,
       },
 
       priceId: {
         type: String,
         default: null,
+        index: true,
       },
 
       status: {
         type: String,
+        enum: [
+          "trialing",
+          "active",
+          "past_due",
+          "paused",
+          "canceled",
+          "unknown",
+        ],
         required: true,
         default: "unknown",
+        index: true,
+      },
+
+      trialStartDate: {
+        type: Date,
+        default: null,
+      },
+
+      trialEndDate: {
+        type: Date,
+        default: null,
+      },
+
+      nextBilledAt: {
+        type: Date,
+        default: null,
+      },
+
+      canceledAt: {
+        type: Date,
+        default: null,
       },
 
       updatedAt: {

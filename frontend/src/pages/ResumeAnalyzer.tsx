@@ -10,7 +10,6 @@ import {
 } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import {
-  canUseFeature,
   getCurrentUserEmail,
   hasUsedFreeAttempt,
   isSubscribed,
@@ -29,13 +28,25 @@ interface ResumeAnalysis {
 interface UploadResponse {
   success: boolean;
   message: string;
+  code?: string;
+  trialRequired?: boolean;
+  premiumAccess?: boolean;
   file?: {
     originalName: string;
-    filename: string;
+    filename?: string;
     size: number;
-    path: string;
+    path?: string;
   };
   analysis?: ResumeAnalysis | null;
+  usage?: {
+    analysisCount?: number;
+    freeAttemptAvailable?: boolean;
+  };
+  subscription?: {
+    status?: string;
+    trialEndDate?: string | null;
+    nextBilledAt?: string | null;
+  };
 }
 
 interface ResumeData {
@@ -50,7 +61,8 @@ interface ResumeData {
 }
 
 const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:5000";
 
 function ResumeAnalyzer() {
   const navigate = useNavigate();
@@ -58,21 +70,31 @@ function ResumeAnalyzer() {
   const fileInputRef =
     useRef<HTMLInputElement | null>(null);
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
+
   const [checkingAccess, setCheckingAccess] =
     useState(true);
 
-  const [error, setError] = useState("");
+  const [error, setError] =
+    useState("");
+
   const [analysis, setAnalysis] =
     useState<ResumeAnalysis | null>(null);
 
-  const [fileName, setFileName] = useState("");
-  const [uploaded, setUploaded] = useState(false);
+  const [fileName, setFileName] =
+    useState("");
+
+  const [uploaded, setUploaded] =
+    useState(false);
 
   const [subscribed, setSubscribed] =
     useState(false);
 
   const [freeAttemptUsed, setFreeAttemptUsed] =
+    useState(false);
+
+  const [trialRequired, setTrialRequired] =
     useState(false);
 
   // =========================================================
@@ -83,17 +105,18 @@ function ResumeAnalyzer() {
     let mounted = true;
 
     const checkAccess = async () => {
-      const email = getCurrentUserEmail();
+      const email =
+        getCurrentUserEmail();
 
       /*
-       * Resume Analyzer requires the user
-       * to be logged in.
+       * Resume Analyzer requires
+       * the user to be logged in.
        */
-
       if (!email) {
         navigate("/login", {
           state: {
-            redirectTo: "/resume-analyzer",
+            redirectTo:
+              "/resume-analyzer",
           },
           replace: true,
         });
@@ -118,8 +141,11 @@ function ResumeAnalyzer() {
         );
 
         /*
-         * Only Resume Analyzer has
-         * free-attempt tracking.
+         * This is only used for displaying
+         * the current free-attempt message.
+         *
+         * The backend remains the authoritative
+         * source for access control.
          */
         setFreeAttemptUsed(
           hasUsedFreeAttempt(
@@ -133,11 +159,6 @@ function ResumeAnalyzer() {
         );
 
         if (mounted) {
-          /*
-           * Fail closed for subscription state.
-           * The actual upload action performs
-           * another access check.
-           */
           setSubscribed(false);
 
           setFreeAttemptUsed(
@@ -161,7 +182,7 @@ function ResumeAnalyzer() {
   }, [navigate]);
 
   // =========================================================
-  // HANDLE RESUME UPLOAD
+  // HANDLE RESUME UPLOAD + ANALYSIS
   // =========================================================
 
   const handleUpload = async (
@@ -232,46 +253,14 @@ function ResumeAnalyzer() {
     }
 
     // =======================================================
-    // SUBSCRIPTION / FREE USE CHECK
-    // =======================================================
-
-    /*
-     * IMPORTANT:
-     *
-     * canUseFeature() is async.
-     *
-     * We MUST await it before deciding
-     * whether the user can use Resume Analyzer.
-     */
-
-    const allowed =
-      await canUseFeature(
-        "resumeAnalyzer"
-      );
-
-    if (!allowed) {
-      e.target.value = "";
-
-      navigate("/subscription", {
-        state: {
-          from:
-            "/resume-analyzer",
-        },
-      });
-
-      return;
-    }
-
-    // =======================================================
     // RESET STATE
     // =======================================================
 
     setError("");
+    setTrialRequired(false);
     setAnalysis(null);
-    setFileName("");
-    setUploaded(false);
-
     setFileName(file.name);
+    setUploaded(false);
 
     // =======================================================
     // FORM DATA
@@ -285,8 +274,18 @@ function ResumeAnalyzer() {
       file
     );
 
+    /*
+     * The backend uses this email to connect
+     * the request to the user's subscription
+     * and ResumeUsage record.
+     */
+    formData.append(
+      "email",
+      email
+    );
+
     // =======================================================
-    // UPLOAD
+    // UPLOAD + ANALYSIS
     // =======================================================
 
     try {
@@ -313,6 +312,35 @@ function ResumeAnalyzer() {
         );
       }
 
+      // =====================================================
+      // FREE ATTEMPT / TRIAL REQUIRED
+      // =====================================================
+
+      if (
+        data.code ===
+          "TRIAL_REQUIRED" ||
+        data.trialRequired
+      ) {
+        setUploaded(false);
+        setAnalysis(null);
+        setTrialRequired(true);
+
+        /*
+         * The file may have been selected in the browser,
+         * but the backend correctly refused to perform
+         * another analysis without premium access.
+         */
+        setError(
+          "Your free Resume Analyzer attempt has been used. Start your free 7-day trial to continue."
+        );
+
+        return;
+      }
+
+      // =====================================================
+      // OTHER BACKEND ERRORS
+      // =====================================================
+
       if (
         !response.ok ||
         !data.success
@@ -330,23 +358,19 @@ function ResumeAnalyzer() {
       setUploaded(true);
 
       /*
-       * Re-check the REAL subscription status
-       * after successful processing.
-       *
-       * This prevents subscribed users from
-       * consuming their free attempt.
+       * Backend explicitly tells us whether this request
+       * had premium access.
        */
-      const currentlySubscribed =
-        await isSubscribed();
-
       if (
-        currentlySubscribed
+        data.premiumAccess
       ) {
         setSubscribed(true);
+        setTrialRequired(false);
       } else {
         /*
-         * Only consume the one free attempt
-         * after successful backend processing.
+         * The backend has already recorded the successful
+         * free analysis. Keep localStorage only as a UI hint;
+         * it is NOT used by the backend for authorization.
          */
         markFeatureUsed(
           "resumeAnalyzer"
@@ -355,6 +379,8 @@ function ResumeAnalyzer() {
         setFreeAttemptUsed(
           true
         );
+
+        setTrialRequired(false);
       }
 
       // =====================================================
@@ -628,6 +654,57 @@ function ResumeAnalyzer() {
                   <FaCrown />
                   You have 1 free Resume
                   Analyzer attempt.
+                </div>
+              )}
+
+              {/* Trial Required CTA */}
+
+              {trialRequired && (
+                <div className="mx-auto mt-6 max-w-xl rounded-2xl border border-purple-500/30 bg-purple-500/10 p-6 text-center">
+
+                  <div className="flex justify-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/20">
+                      <FaCrown className="text-xl text-purple-400" />
+                    </div>
+                  </div>
+
+                  <h3 className="mt-4 text-xl font-bold text-white">
+                    Start your free 7-day trial
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
+                    Your free Resume Analyzer
+                    attempt has been used.
+                    Start your 7-day free trial
+                    to unlock Resume Analyzer
+                    and all other premium
+                    CareerPilot features.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        "/subscription",
+                        {
+                          state: {
+                            from:
+                              "/resume-analyzer",
+                          },
+                        }
+                      )
+                    }
+                    className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 px-7 py-3 font-semibold text-white shadow-lg shadow-purple-900/30 transition-all duration-300 hover:-translate-y-0.5"
+                  >
+                    <FaCrown />
+                    Start Free 7-Day Trial
+                  </button>
+
+                  <p className="mt-3 text-xs text-slate-500">
+                    Your trial unlocks all
+                    premium features.
+                  </p>
+
                 </div>
               )}
 

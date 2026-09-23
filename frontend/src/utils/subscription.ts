@@ -1,17 +1,28 @@
 import axios from "axios";
 
 export type PremiumFeature =
-  | "resumeAnalyzer";
+  | "resumeAnalyzer"
+  | "careerRoadmap"
+  | "linkedinOptimizer"
+  | "aiInterview";
 
 export type SubscriptionStatus = {
   success: boolean;
   subscribed: boolean;
+  trialing?: boolean;
+  premiumAccess?: boolean;
   status: string;
+  trialEndDate?: string | null;
+  nextBilledAt?: string | null;
   subscription: {
     subscriptionId?: string | null;
     plan?: string | null;
     priceId?: string | null;
     status?: string | null;
+    trialStartDate?: string | null;
+    trialEndDate?: string | null;
+    nextBilledAt?: string | null;
+    canceledAt?: string | null;
     updatedAt?: string;
   } | null;
 };
@@ -50,7 +61,11 @@ export const getSubscriptionStatus =
       return {
         success: false,
         subscribed: false,
+        trialing: false,
+        premiumAccess: false,
         status: "unauthenticated",
+        trialEndDate: null,
+        nextBilledAt: null,
         subscription: null,
       };
     }
@@ -74,18 +89,49 @@ export const getSubscriptionStatus =
       return {
         success: false,
         subscribed: false,
+        trialing: false,
+        premiumAccess: false,
         status: "error",
+        trialEndDate: null,
+        nextBilledAt: null,
         subscription: null,
       };
     }
   };
 
+/**
+ * Returns true only when the subscription is actively paid.
+ * Trialing users are handled separately by hasPremiumAccess().
+ */
 export const isSubscribed =
   async (): Promise<boolean> => {
     const result = await getSubscriptionStatus();
 
     return Boolean(
-      result.success && result.subscribed
+      result.success &&
+        result.subscribed &&
+        result.status === "active"
+    );
+  };
+
+/**
+ * Returns true when the user can access premium features.
+ *
+ * Both an active paid subscription and an active
+ * 7-day trial provide full premium access.
+ */
+export const hasPremiumAccess =
+  async (): Promise<boolean> => {
+    const result = await getSubscriptionStatus();
+
+    return Boolean(
+      result.success &&
+        (
+          result.premiumAccess ||
+          result.trialing ||
+          result.status === "trialing" ||
+          result.status === "active"
+        )
     );
   };
 
@@ -101,6 +147,11 @@ const getUsageKey = (
   return `careerPilot_${email}_${feature}_used`;
 };
 
+/**
+ * Local usage tracking is only a UI fallback.
+ * The backend remains the authoritative source for
+ * Resume Analyzer usage and premium access.
+ */
 export const hasUsedFreeAttempt = (
   feature: PremiumFeature
 ): boolean => {
@@ -124,9 +175,10 @@ export const canUseFeature = async (
   feature: PremiumFeature
 ): Promise<boolean> => {
   try {
-    const subscribed = await isSubscribed();
+    const premiumAccess =
+      await hasPremiumAccess();
 
-    if (subscribed) {
+    if (premiumAccess) {
       return true;
     }
 

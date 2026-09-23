@@ -1,4 +1,5 @@
 const express = require("express");
+const Subscription = require("../models/Subscription");
 
 const router = express.Router();
 
@@ -1542,6 +1543,59 @@ router.post("/generate", async (req, res) => {
     const body = req.body || {};
 
     // ======================================================
+    // SUBSCRIPTION STATUS
+    //
+    // Roadmap generation is allowed so an unsubscribed user
+    // can receive the real personalized preview.
+    // Full roadmap data is returned only to trialing/active
+    // subscribers below.
+    // ======================================================
+
+    const email = cleanString(
+      body.email ||
+        req.headers["x-user-email"]
+    ).toLowerCase();
+
+    if (!email) {
+      return res.status(401).json({
+        success: false,
+        code: "AUTHENTICATION_REQUIRED",
+        message:
+          "Please log in to generate your Career Roadmap.",
+      });
+    }
+
+    const subscription =
+      await Subscription.findOne({
+        email,
+        status: {
+          $in: ["trialing", "active"],
+        },
+      }).sort({
+        updatedAt: -1,
+      });
+
+    const premiumAccess = Boolean(
+      subscription &&
+      (
+        subscription.status === "trialing" ||
+        subscription.status === "active"
+      )
+    );
+
+    const createPreviewRoadmap = (fullRoadmap) => ({
+      careerOverview:
+        fullRoadmap.careerOverview,
+
+      skillAssessment: {
+        existingStrengths:
+          fullRoadmap.skillAssessment
+            ?.existingStrengths || [],
+      },
+    });
+
+
+    // ======================================================
     // GET & NORMALIZE USER DATA
     // ======================================================
 
@@ -1654,7 +1708,11 @@ router.post("/generate", async (req, res) => {
 
         source: "fallback",
 
-        roadmap,
+        roadmap: premiumAccess
+          ? roadmap
+          : createPreviewRoadmap(roadmap),
+
+        premiumAccess,
       });
     }
 
@@ -2015,7 +2073,11 @@ Do not return explanations outside the JSON.
 
       source: "openai",
 
-      roadmap,
+      roadmap: premiumAccess
+        ? roadmap
+        : createPreviewRoadmap(roadmap),
+
+      premiumAccess,
     });
   } catch (error) {
     // ======================================================
@@ -2089,7 +2151,11 @@ Do not return explanations outside the JSON.
 
         source: "fallback",
 
-        roadmap,
+        roadmap: premiumAccess
+          ? roadmap
+          : createPreviewRoadmap(roadmap),
+
+        premiumAccess,
       });
     } catch (fallbackError) {
       console.error(

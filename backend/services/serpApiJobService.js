@@ -9,6 +9,7 @@ const searchSerpApiJobs = async ({
   location = "",
   page = 1,
   resultsPerPage = 20,
+  countryCode = "",
 }) => {
   const apiKey = process.env.SERPAPI_API_KEY;
 
@@ -66,6 +67,10 @@ const searchSerpApiJobs = async ({
 
     if (cleanLocation) {
       params.location = cleanLocation;
+    }
+
+    if (countryCode) {
+      params.gl = countryCode;
     }
 
     const response = await axios.get(

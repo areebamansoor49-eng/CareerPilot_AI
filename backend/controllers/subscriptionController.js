@@ -1,21 +1,108 @@
 const Subscription = require("../models/Subscription");
 
-const updateSubscriptionFromWebhook = async (eventData) => {
+// ========================================================
+// HELPERS
+// ========================================================
+
+const normalizeEmail = (email) => {
+  if (!email) {
+    return null;
+  }
+
+  return String(email)
+    .trim()
+    .toLowerCase();
+};
+
+const toDateOrNull = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime())
+    ? null
+    : date;
+};
+
+const getPlanFromPrice = (priceId, customData = {}) => {
+  const monthlyPriceId =
+    process.env.PADDLE_MONTHLY_PRICE_ID;
+
+  const yearlyPriceId =
+    process.env.PADDLE_YEARLY_PRICE_ID;
+
+  if (
+    priceId &&
+    monthlyPriceId &&
+    priceId === monthlyPriceId
+  ) {
+    return "monthly";
+  }
+
+  if (
+    priceId &&
+    yearlyPriceId &&
+    priceId === yearlyPriceId
+  ) {
+    return "yearly";
+  }
+
+  if (
+    customData?.plan === "monthly" ||
+    customData?.plan === "yearly"
+  ) {
+    return customData.plan;
+  }
+
+  return null;
+};
+
+const getSubscriptionItem = (data) => {
+  if (!Array.isArray(data?.items)) {
+    return null;
+  }
+
+  return (
+    data.items.find(
+      (item) => item?.recurring !== false
+    ) ||
+    data.items[0] ||
+    null
+  );
+};
+
+// ========================================================
+// PADDLE WEBHOOK → MONGODB
+// ========================================================
+
+const updateSubscriptionFromWebhook = async (
+  eventData
+) => {
   if (!eventData || !eventData.data) {
-    console.warn("Paddle webhook has no data.");
+    console.warn(
+      "Paddle webhook has no data."
+    );
+
     return;
   }
 
   const data = eventData.data;
 
-  const subscriptionId = data.id || null;
+  const subscriptionId =
+    data.id || null;
 
   if (!subscriptionId) {
     console.warn(
       "Paddle webhook does not contain subscription ID."
     );
+
     return;
   }
+
+  const customData =
+    data.custom_data || {};
 
   // ======================================================
   // EMAIL
@@ -24,58 +111,52 @@ const updateSubscriptionFromWebhook = async (eventData) => {
   const email =
     data.customer?.email ||
     data.email ||
-    data.custom_data?.user_email ||
-    data.custom_data?.email ||
+    customData.user_email ||
+    customData.email ||
     null;
 
-  const normalizedEmail = email
-    ? String(email).trim().toLowerCase()
-    : null;
+  const normalizedEmail =
+    normalizeEmail(email);
 
   // ======================================================
   // USER ID
   // ======================================================
 
   const userId =
-    data.custom_data?.user_id ||
+    customData.user_id ||
     null;
 
   // ======================================================
-  // PADDLE STATUS
+  // STATUS
   // ======================================================
 
   const paddleStatus =
     data.status || "unknown";
 
-  // ======================================================
-  // APPLICATION STATUS
-  // ======================================================
+  const allowedStatuses = [
+    "trialing",
+    "active",
+    "past_due",
+    "paused",
+    "canceled",
+  ];
 
-  let status = paddleStatus;
-
-  if (paddleStatus === "trialing") {
-    status = "trialing";
-  } else if (paddleStatus === "active") {
-    status = "active";
-  } else if (paddleStatus === "canceled") {
-    status = "canceled";
-  } else if (paddleStatus === "paused") {
-    status = "paused";
-  } else if (paddleStatus === "past_due") {
-    status = "past_due";
-  }
+  const status =
+    allowedStatuses.includes(
+      paddleStatus
+    )
+      ? paddleStatus
+      : "unknown";
 
   // ======================================================
-  // PLAN
+  // SUBSCRIPTION ITEM
   // ======================================================
+
+  const subscriptionItem =
+    getSubscriptionItem(data);
 
   const price =
-    data.items?.[0]?.price || null;
-
-  const plan =
-    price?.name ||
-    price?.description ||
-    data.custom_data?.plan ||
+    subscriptionItem?.price ||
     null;
 
   // ======================================================
@@ -84,8 +165,59 @@ const updateSubscriptionFromWebhook = async (eventData) => {
 
   const priceId =
     price?.id ||
-    data.items?.[0]?.price_id ||
+    subscriptionItem?.price_id ||
     null;
+
+  // ======================================================
+  // PLAN
+  // ======================================================
+
+  const plan =
+    getPlanFromPrice(
+      priceId,
+      customData
+    ) ||
+    price?.name ||
+    price?.description ||
+    null;
+
+  // ======================================================
+  // TRIAL DATES
+  // Paddle puts trial dates on the subscription item.
+  // ======================================================
+
+  const trialDates =
+    subscriptionItem?.trial_dates ||
+    null;
+
+  const trialStartDate =
+    toDateOrNull(
+      trialDates?.starts_at
+    );
+
+  const trialEndDate =
+    toDateOrNull(
+      trialDates?.ends_at
+    );
+
+  // ======================================================
+  // NEXT BILLING DATE
+  // ======================================================
+
+  const nextBilledAt =
+    toDateOrNull(
+      data.next_billed_at ||
+        subscriptionItem?.next_billed_at
+    );
+
+  // ======================================================
+  // CANCELLATION DATE
+  // ======================================================
+
+  const canceledAt =
+    toDateOrNull(
+      data.canceled_at
+    );
 
   // ======================================================
   // UPDATE DATA
@@ -94,10 +226,13 @@ const updateSubscriptionFromWebhook = async (eventData) => {
   const updateData = {
     subscriptionId,
     status,
-    plan,
     priceId,
     updatedAt: new Date(),
   };
+
+  if (plan) {
+    updateData.plan = plan;
+  }
 
   if (userId) {
     updateData.userId = userId;
@@ -107,14 +242,38 @@ const updateSubscriptionFromWebhook = async (eventData) => {
     updateData.email = normalizedEmail;
   }
 
+  if (trialStartDate) {
+    updateData.trialStartDate =
+      trialStartDate;
+  }
+
+  if (trialEndDate) {
+    updateData.trialEndDate =
+      trialEndDate;
+  }
+
+  if (nextBilledAt) {
+    updateData.nextBilledAt =
+      nextBilledAt;
+  }
+
+  if (canceledAt) {
+    updateData.canceledAt =
+      canceledAt;
+  }
+
   // ======================================================
-  // SAVE SUBSCRIPTION
+  // FIND EXISTING SUBSCRIPTION
   // ======================================================
 
   let subscription =
     await Subscription.findOne({
       subscriptionId,
     });
+
+  // ======================================================
+  // UPDATE EXISTING
+  // ======================================================
 
   if (subscription) {
     Object.assign(
@@ -124,7 +283,13 @@ const updateSubscriptionFromWebhook = async (eventData) => {
 
     subscription =
       await subscription.save();
-  } else {
+  }
+
+  // ======================================================
+  // CREATE NEW
+  // ======================================================
+
+  else {
     if (!normalizedEmail) {
       console.warn(
         "Cannot create subscription record because customer email is missing."
@@ -134,32 +299,93 @@ const updateSubscriptionFromWebhook = async (eventData) => {
     }
 
     subscription =
-      await Subscription.create(
-        updateData
-      );
+      await Subscription.create({
+        ...updateData,
+        email: normalizedEmail,
+      });
   }
 
+  // ======================================================
+  // LOG
+  // ======================================================
+
   console.log(
-    "Subscription saved to MongoDB:",
-    {
-      subscriptionId:
-        subscription.subscriptionId,
+    "================================="
+  );
 
-      email:
-        subscription.email,
+  console.log(
+    "CareerPilot Paddle Subscription Updated"
+  );
 
-      userId:
-        subscription.userId,
+  console.log(
+    `Event: ${
+      eventData.event_type ||
+      "UNKNOWN"
+    }`
+  );
 
-      plan:
-        subscription.plan,
+  console.log(
+    `Subscription ID: ${
+      subscription.subscriptionId
+    }`
+  );
 
-      priceId:
-        subscription.priceId,
+  console.log(
+    `Email: ${
+      subscription.email
+    }`
+  );
 
-      status:
-        subscription.status,
-    }
+  console.log(
+    `User ID: ${
+      subscription.userId ||
+      "N/A"
+    }`
+  );
+
+  console.log(
+    `Plan: ${
+      subscription.plan ||
+      "N/A"
+    }`
+  );
+
+  console.log(
+    `Price ID: ${
+      subscription.priceId ||
+      "N/A"
+    }`
+  );
+
+  console.log(
+    `Status: ${
+      subscription.status
+    }`
+  );
+
+  console.log(
+    `Trial Start: ${
+      subscription.trialStartDate ||
+      "N/A"
+    }`
+  );
+
+  console.log(
+    `Trial End: ${
+      subscription.trialEndDate ||
+      "N/A"
+    }`
+  );
+
+  console.log(
+    `Next Billed At: ${
+      subscription.nextBilledAt ||
+      "N/A"
+    }`
+  );
+
+  console.log(
+    "================================="
   );
 
   return subscription;
@@ -174,16 +400,16 @@ const getSubscriptionStatus = async (
   res
 ) => {
   try {
-    const email = String(
-      req.query.email || ""
-    )
-      .trim()
-      .toLowerCase();
+    const email = normalizeEmail(
+      req.query.email
+    );
 
     if (!email) {
       return res.status(400).json({
         success: false,
         subscribed: false,
+        trialing: false,
+        premiumAccess: false,
         status: "unauthenticated",
         subscription: null,
       });
@@ -198,17 +424,48 @@ const getSubscriptionStatus = async (
         })
         .lean();
 
-    const subscribed =
-      subscription?.status === "active";
+    const status =
+      subscription?.status ||
+      "inactive";
+
+    // ====================================================
+    // PREMIUM ACCESS
+    //
+    // trialing = 7-day Paddle trial
+    // active   = successfully paid subscription
+    // ====================================================
+
+    const trialing =
+      status === "trialing";
+
+    const active =
+      status === "active";
+
+    const premiumAccess =
+      trialing || active;
 
     return res.status(200).json({
       success: true,
-      subscribed,
-      status:
-        subscription?.status ||
-        "inactive",
 
-      subscription: subscription || null,
+      subscribed:
+        active,
+
+      trialing,
+
+      premiumAccess,
+
+      status,
+
+      trialEndDate:
+        subscription?.trialEndDate ||
+        null,
+
+      nextBilledAt:
+        subscription?.nextBilledAt ||
+        null,
+
+      subscription:
+        subscription || null,
     });
   } catch (error) {
     console.error(
@@ -219,6 +476,8 @@ const getSubscriptionStatus = async (
     return res.status(500).json({
       success: false,
       subscribed: false,
+      trialing: false,
+      premiumAccess: false,
       status: "error",
       subscription: null,
     });

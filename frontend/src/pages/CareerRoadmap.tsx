@@ -23,8 +23,12 @@ import {
 } from "react";
 
 import { useNavigate } from "react-router-dom";
+import jsPDF from "jspdf";
 
-import { getSubscriptionStatus } from "../utils/subscription";
+import {
+  getCurrentUserEmail,
+  getSubscriptionStatus,
+} from "../utils/subscription";
 import SubscriptionModal from "../components/SubscriptionModal";
 
 const API_URL =
@@ -753,7 +757,9 @@ export default function CareerRoadmap() {
     setRoadmap(null);
     setRoadmapSource("");
     setShowSubscriptionModal(false);
+
     setIsSubscribed(false);
+
     setSuccess("");
     setError("");
   };
@@ -785,7 +791,12 @@ export default function CareerRoadmap() {
 
       const subscribed = Boolean(
         subscription.success &&
-        subscription.subscribed
+        (
+          subscription.premiumAccess ||
+          subscription.trialing ||
+          subscription.status === "trialing" ||
+          subscription.status === "active"
+        )
       );
 
       setIsSubscribed(subscribed);
@@ -872,6 +883,7 @@ export default function CareerRoadmap() {
           },
           credentials: "include",
           body: JSON.stringify({
+            email: getCurrentUserEmail(),
             careerField: form.careerField,
             targetRole: form.targetRole.trim(),
             currentLevel: form.currentLevel,
@@ -918,6 +930,22 @@ export default function CareerRoadmap() {
 
       setRoadmap(generatedRoadmap);
 
+      const premiumAccess = Boolean(
+        (
+          data as typeof data & {
+            premiumAccess?: boolean;
+          }
+        ).premiumAccess
+      );
+
+      setIsSubscribed(premiumAccess);
+
+      if (!premiumAccess) {
+        setShowSubscriptionModal(true);
+      } else {
+        setShowSubscriptionModal(false);
+      }
+
       const source =
         data.source === "openai"
           ? "openai"
@@ -939,8 +967,6 @@ export default function CareerRoadmap() {
         data.message ||
           "Your personalized career roadmap has been generated successfully."
       );
-
-      await checkRoadmapSubscription();
 
       window.setTimeout(() => {
         document
@@ -988,7 +1014,12 @@ export default function CareerRoadmap() {
 
       const subscribed = Boolean(
         subscription.success &&
-        subscription.subscribed
+        (
+          subscription.premiumAccess ||
+          subscription.trialing ||
+          subscription.status === "trialing" ||
+          subscription.status === "active"
+        )
       );
 
       setIsSubscribed(subscribed);
@@ -1009,6 +1040,904 @@ export default function CareerRoadmap() {
     } finally {
       setCheckingSubscription(false);
     }
+  };
+
+  /* =======================================================
+     DOWNLOAD ROADMAP PDF
+  ======================================================= */
+
+  const downloadRoadmapPDF = () => {
+    if (!roadmap || !isSubscribed) {
+      return;
+    }
+
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+
+    const margin = 18;
+    const contentWidth = pageWidth - margin * 2;
+
+    let y = 20;
+
+    const addPageNumber = () => {
+      const pageCount = pdf.getNumberOfPages();
+
+      for (let page = 1; page <= pageCount; page += 1) {
+        pdf.setPage(page);
+
+        pdf.setFontSize(8);
+        pdf.setTextColor(120, 130, 145);
+
+        pdf.text(
+          `CareerPilot AI • Career Roadmap • Page ${page} of ${pageCount}`,
+          pageWidth / 2,
+          pageHeight - 10,
+          { align: "center" }
+        );
+      }
+    };
+
+    const ensureSpace = (height: number) => {
+      if (y + height > pageHeight - 22) {
+        pdf.addPage();
+        y = 20;
+      }
+    };
+
+    const addTitle = (
+      title: string,
+      subtitle?: string
+    ) => {
+      ensureSpace(18);
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(15);
+      pdf.setTextColor(20, 45, 90);
+      pdf.text(title, margin, y);
+
+      y += 7;
+
+      if (subtitle) {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(9);
+        pdf.setTextColor(95, 105, 120);
+
+        const lines = pdf.splitTextToSize(
+          subtitle,
+          contentWidth
+        );
+
+        pdf.text(lines, margin, y);
+
+        y += lines.length * 4.5 + 4;
+      } else {
+        y += 4;
+      }
+    };
+
+    const addParagraph = (
+      text: string,
+      fontSize = 9.5
+    ) => {
+      const value = String(text || "").trim();
+
+      if (!value) {
+        return;
+      }
+
+      const lines = pdf.splitTextToSize(
+        value,
+        contentWidth
+      );
+
+      const height =
+        lines.length * (fontSize * 0.45) + 4;
+
+      ensureSpace(height);
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(fontSize);
+      pdf.setTextColor(55, 65, 80);
+
+      pdf.text(lines, margin, y);
+
+      y += height;
+    };
+
+    const addBulletList = (
+      items: string[],
+      maxItems = 20
+    ) => {
+      const cleanItems = items
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+        .slice(0, maxItems);
+
+      cleanItems.forEach((item) => {
+        const lines = pdf.splitTextToSize(
+          item,
+          contentWidth - 7
+        );
+
+        const height =
+          lines.length * 4.2 + 2;
+
+        ensureSpace(height);
+
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(9);
+        pdf.setTextColor(55, 65, 80);
+
+        pdf.text("•", margin, y);
+        pdf.text(lines, margin + 5, y);
+
+        y += height;
+      });
+
+      y += 2;
+    };
+
+    const getText = (
+      value: unknown,
+      fallback = ""
+    ): string => {
+      if (
+        value === null ||
+        value === undefined
+      ) {
+        return fallback;
+      }
+
+      if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean"
+      ) {
+        return String(value);
+      }
+
+      return fallback;
+    };
+
+    const getList = (
+      value: unknown
+    ): string[] => {
+      return getStringArray(value)
+        .map((item) => String(item).trim())
+        .filter(Boolean);
+    };
+
+    const overview = getObject(
+      roadmap.careerOverview
+    );
+
+    const assessment = getObject(
+      roadmap.skillAssessment
+    );
+
+    const learningPlan = getObject(
+      roadmap.learningPlan
+    );
+
+    const careerPreparation = getObject(
+      roadmap.careerPreparation
+    );
+
+    const phases = getArray(
+      roadmap.roadmap
+    );
+
+    const projects = getArray(
+      roadmap.projectsAndExperience
+    );
+
+    const certifications = getArray(
+      roadmap.certifications
+    );
+
+    const milestones = getArray(
+      roadmap.milestones
+    );
+
+    const nextSteps = getList(
+      roadmap.nextSteps
+    );
+
+    /* =====================================================
+       COVER
+    ===================================================== */
+
+    pdf.setFillColor(7, 20, 47);
+    pdf.rect(0, 0, pageWidth, 58, "F");
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(24);
+    pdf.setTextColor(255, 255, 255);
+
+    pdf.text(
+      "CareerPilot AI",
+      margin,
+      25
+    );
+
+    pdf.setFontSize(17);
+    pdf.text(
+      "Your Career Roadmap",
+      margin,
+      37
+    );
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.setTextColor(190, 205, 225);
+
+    pdf.text(
+      "A personalized career development plan",
+      margin,
+      46
+    );
+
+    y = 72;
+
+    const targetRole =
+      getText(
+        overview.targetRole,
+        form.targetRole
+      );
+
+    const field =
+      getText(
+        overview.field,
+        form.careerField
+      );
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(13);
+    pdf.setTextColor(20, 45, 90);
+
+    pdf.text(
+      targetRole || "Career Development Plan",
+      margin,
+      y
+    );
+
+    y += 7;
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.setTextColor(90, 100, 115);
+
+    pdf.text(
+      field,
+      margin,
+      y
+    );
+
+    y += 12;
+
+    /* =====================================================
+       PROFILE SUMMARY
+    ===================================================== */
+
+    addTitle(
+      "Profile Summary",
+      "The information used to personalize your roadmap."
+    );
+
+    const profileRows = [
+      ["Current Level", form.currentLevel],
+      ["Education", form.education],
+      ["Experience", form.experience],
+      ["Career Goal", form.careerGoal],
+      ["Weekly Learning Time", `${form.weeklyHours} hours`],
+      ["Learning Preference", form.preferredLearning],
+    ];
+
+    profileRows.forEach(([label, value]) => {
+      if (!String(value || "").trim()) {
+        return;
+      }
+
+      ensureSpace(7);
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8.5);
+      pdf.setTextColor(70, 80, 95);
+
+      pdf.text(`${label}:`, margin, y);
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(55, 65, 80);
+
+      const lines = pdf.splitTextToSize(
+        String(value),
+        contentWidth - 38
+      );
+
+      pdf.text(
+        lines,
+        margin + 38,
+        y
+      );
+
+      y += Math.max(
+        5,
+        lines.length * 4.2
+      );
+    });
+
+    /* =====================================================
+       CAREER OVERVIEW
+    ===================================================== */
+
+    addTitle(
+      "Career Overview"
+    );
+
+    addParagraph(
+      getText(
+        overview.startingPoint
+      )
+    );
+
+    addParagraph(
+      getText(
+        overview.careerDirection
+      )
+    );
+
+    /* =====================================================
+       SKILL ASSESSMENT
+    ===================================================== */
+
+    addTitle(
+      "Skill Assessment",
+      "Strengths, gaps and priority areas for development."
+    );
+
+    addParagraph("Existing Strengths");
+
+    addBulletList(
+      getList(
+        assessment.existingStrengths ||
+          assessment.currentStrengths ||
+          assessment.existingSkills ||
+          assessment.currentSkills
+      )
+    );
+
+    addParagraph("Skill Gaps");
+
+    addBulletList(
+      getList(
+        assessment.skillGaps ||
+          assessment.gaps
+      )
+    );
+
+    addParagraph("Priority Skills");
+
+    addBulletList(
+      getList(
+        assessment.prioritySkills
+      )
+    );
+
+    /* =====================================================
+       ROADMAP PHASES
+    ===================================================== */
+
+    addTitle(
+      "Roadmap Phases",
+      "Follow these phases progressively and track your development."
+    );
+
+    phases.forEach((phase, index) => {
+      if (!isObject(phase)) {
+        return;
+      }
+
+      const phaseNumber =
+        typeof phase.phase === "number"
+          ? String(phase.phase)
+          : getText(
+              phase.phase,
+              String(index + 1)
+            );
+
+      const title =
+        getText(
+          phase.title,
+          `Phase ${index + 1}`
+        );
+
+      const duration =
+        getText(
+          phase.duration
+        );
+
+      ensureSpace(30);
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(12);
+      pdf.setTextColor(20, 45, 90);
+
+      pdf.text(
+        `Phase ${phaseNumber}: ${title}`,
+        margin,
+        y
+      );
+
+      y += 6;
+
+      if (duration) {
+        pdf.setFont("helvetica", "italic");
+        pdf.setFontSize(8.5);
+        pdf.setTextColor(90, 100, 115);
+
+        pdf.text(
+          `Timeline: ${duration}`,
+          margin,
+          y
+        );
+
+        y += 5;
+      }
+
+      const objective =
+        getText(
+          phase.objective
+        );
+
+      if (objective) {
+        addParagraph(
+          `Objective: ${objective}`
+        );
+      }
+
+      const phaseSkills =
+        getList(
+          phase.skills ||
+            phase.skillFocus
+        );
+
+      if (phaseSkills.length) {
+        addParagraph("Skills to Develop");
+        addBulletList(phaseSkills);
+      }
+
+      const learningActions =
+        getList(
+          phase.learningActions
+        );
+
+      if (learningActions.length) {
+        addParagraph("Learning Actions");
+        addBulletList(learningActions);
+      }
+
+      const practicalExperience =
+        getList(
+          phase.practicalExperience
+        );
+
+      if (practicalExperience.length) {
+        addParagraph("Practical Experience");
+        addBulletList(
+          practicalExperience
+        );
+      }
+
+      const phaseMilestones =
+        getList(
+          phase.milestones
+        );
+
+      if (phaseMilestones.length) {
+        addParagraph("Phase Milestones");
+        addBulletList(
+          phaseMilestones
+        );
+      }
+
+      y += 3;
+    });
+
+    /* =====================================================
+       LEARNING PLAN
+    ===================================================== */
+
+    if (
+      Object.keys(learningPlan).length > 0
+    ) {
+      addTitle(
+        "Learning Plan"
+      );
+
+      addParagraph(
+        "Core Topics"
+      );
+
+      addBulletList(
+        getList(
+          learningPlan.coreTopics
+        )
+      );
+
+      addParagraph(
+        "Recommended Learning Methods"
+      );
+
+      addBulletList(
+        getList(
+          learningPlan.recommendedLearningMethods
+        )
+      );
+
+      addParagraph(
+        "Practice Strategy"
+      );
+
+      addParagraph(
+        getText(
+          learningPlan.practiceStrategy
+        )
+      );
+    }
+
+    /* =====================================================
+       PROJECTS
+    ===================================================== */
+
+    if (projects.length > 0) {
+      addTitle(
+        "Projects & Practical Experience",
+        "Build practical evidence of your capabilities."
+      );
+
+      projects.forEach((project, index) => {
+        if (!isObject(project)) {
+          return;
+        }
+
+        const title =
+          getText(
+            project.title ||
+              project.project ||
+              project.name,
+            `Project ${index + 1}`
+          );
+
+        const description =
+          getText(
+            project.description ||
+              project.purpose ||
+              project.goal
+          );
+
+        const difficulty =
+          getText(
+            project.difficulty
+          );
+
+        const outcome =
+          getText(
+            project.outcome ||
+              project.result
+          );
+
+        ensureSpace(25);
+
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(11);
+        pdf.setTextColor(20, 45, 90);
+
+        pdf.text(
+          `${index + 1}. ${title}`,
+          margin,
+          y
+        );
+
+        y += 6;
+
+        if (difficulty) {
+          addParagraph(
+            `Difficulty: ${difficulty}`
+          );
+        }
+
+        if (description) {
+          addParagraph(
+            description
+          );
+        }
+
+        const skills =
+          getList(
+            project.skillsDeveloped ||
+              project.skills
+          );
+
+        if (skills.length) {
+          addParagraph(
+            "Skills Developed"
+          );
+
+          addBulletList(skills);
+        }
+
+        if (outcome) {
+          addParagraph(
+            `Expected Outcome: ${outcome}`
+          );
+        }
+
+        y += 2;
+      });
+    }
+
+    /* =====================================================
+       CERTIFICATIONS
+    ===================================================== */
+
+    if (certifications.length > 0) {
+      addTitle(
+        "Recommended Certifications"
+      );
+
+      certifications.forEach(
+        (certification, index) => {
+          if (
+            typeof certification ===
+            "string"
+          ) {
+            addBulletList([
+              certification,
+            ]);
+
+            return;
+          }
+
+          if (
+            !isObject(certification)
+          ) {
+            return;
+          }
+
+          const title =
+            getText(
+              certification.title ||
+                certification.name ||
+                certification.certification,
+              `Certification ${index + 1}`
+            );
+
+          const description =
+            getText(
+              certification.description ||
+                certification.purpose
+            );
+
+          addParagraph(
+            title
+          );
+
+          if (description) {
+            addParagraph(
+              description
+            );
+          }
+        }
+      );
+    }
+
+    /* =====================================================
+       CAREER PREPARATION
+    ===================================================== */
+
+    if (
+      Object.keys(careerPreparation)
+        .length > 0
+    ) {
+      addTitle(
+        "Career Preparation"
+      );
+
+      Object.entries(
+        careerPreparation
+      ).forEach(([key, value]) => {
+        const label =
+          key
+            .replace(
+              /([A-Z])/g,
+              " $1"
+            )
+            .replace(
+              /^./,
+              (letter) =>
+                letter.toUpperCase()
+            );
+
+        if (
+          Array.isArray(value)
+        ) {
+          addParagraph(label);
+          addBulletList(
+            value.map((item) =>
+              String(item)
+            )
+          );
+        } else {
+          const valueText =
+            getText(value);
+
+          if (valueText) {
+            addParagraph(
+              `${label}: ${valueText}`
+            );
+          }
+        }
+      });
+    }
+
+    /* =====================================================
+       MILESTONES
+    ===================================================== */
+
+    if (milestones.length > 0) {
+      addTitle(
+        "Milestones",
+        "Track these outcomes as you progress."
+      );
+
+      milestones.forEach(
+        (milestone, index) => {
+          if (
+            typeof milestone ===
+            "string"
+          ) {
+            addBulletList([
+              `${index + 1}. ${milestone}`,
+            ]);
+
+            return;
+          }
+
+          if (
+            !isObject(milestone)
+          ) {
+            return;
+          }
+
+          const title =
+            getText(
+              milestone.milestone ||
+                milestone.title ||
+                milestone.name,
+              `Milestone ${index + 1}`
+            );
+
+          const outcome =
+            getText(
+              milestone.expectedOutcome ||
+                milestone.successCriteria
+            );
+
+          const timeframe =
+            getText(
+              milestone.timeframe ||
+                milestone.duration
+            );
+
+          addParagraph(
+            `${index + 1}. ${title}`
+          );
+
+          if (timeframe) {
+            addParagraph(
+              `Timeframe: ${timeframe}`
+            );
+          }
+
+          if (outcome) {
+            addParagraph(
+              `Expected Outcome: ${outcome}`
+            );
+          }
+        }
+      );
+    }
+
+    /* =====================================================
+       NEXT STEPS
+    ===================================================== */
+
+    if (nextSteps.length > 0) {
+      addTitle(
+        "Next Steps",
+        "Start with these actions after reviewing your roadmap."
+      );
+
+      addBulletList(
+        nextSteps
+      );
+    }
+
+    /* =====================================================
+       FINAL NOTE
+    ===================================================== */
+
+    ensureSpace(28);
+
+    pdf.setDrawColor(
+      210,
+      220,
+      235
+    );
+
+    pdf.line(
+      margin,
+      y,
+      pageWidth - margin,
+      y
+    );
+
+    y += 8;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.setTextColor(20, 45, 90);
+
+    pdf.text(
+      "CareerPilot AI",
+      margin,
+      y
+    );
+
+    y += 5;
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.setTextColor(100, 110, 125);
+
+    const note =
+      "This roadmap is a personalized planning resource based on the information provided. Career requirements, certifications and licensing rules may vary by country, employer and profession.";
+
+    const noteLines =
+      pdf.splitTextToSize(
+        note,
+        contentWidth
+      );
+
+    pdf.text(
+      noteLines,
+      margin,
+      y
+    );
+
+    addPageNumber();
+
+    const safeRole =
+      (targetRole || "Career-Roadmap")
+        .replace(
+          /[^a-z0-9]+/gi,
+          "-"
+        )
+        .replace(
+          /^-+|-+$/g,
+          ""
+        )
+        .toLowerCase();
+
+    pdf.save(
+      `CareerPilot-${safeRole || "Roadmap"}.pdf`
+    );
   };
 
   /* =======================================================

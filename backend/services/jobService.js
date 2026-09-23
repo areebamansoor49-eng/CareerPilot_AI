@@ -2,6 +2,10 @@ const axios = require("axios");
 const {
   searchSerpApiJobs,
 } = require("./serpApiJobService");
+const {
+  searchJoobleJobs,
+  normalizeJoobleJob,
+} = require("./joobleJobService");
 
 // ======================================================
 // ADZUNA SUPPORTED MARKETS
@@ -433,6 +437,42 @@ const getPakistanSearchLocations = (location) => {
 // LOCATION DETECTION
 // ======================================================
 
+const EUROPE_LOCATION_MAP = {
+  uk: "gb", "united kingdom": "gb", england: "gb", london: "gb", manchester: "gb",
+  germany: "de", berlin: "de", munich: "de", frankfurt: "de", hamburg: "de",
+  france: "fr", paris: "fr", lyon: "fr", marseille: "fr",
+  italy: "it", rome: "it", milan: "it",
+  spain: "es", madrid: "es", barcelona: "es",
+  netherlands: "nl", holland: "nl", amsterdam: "nl",
+  belgium: "be", brussels: "be",
+  switzerland: "ch", zurich: "ch", geneva: "ch",
+  austria: "at", vienna: "at",
+  ireland: "ie", dublin: "ie",
+  portugal: "pt", lisbon: "pt",
+  denmark: "dk", copenhagen: "dk",
+  sweden: "se", stockholm: "se",
+  norway: "no", oslo: "no",
+  finland: "fi", helsinki: "fi",
+  poland: "pl", warsaw: "pl", krakow: "pl",
+  czechia: "cz", "czech republic": "cz", prague: "cz",
+  greece: "gr", athens: "gr",
+  hungary: "hu", budapest: "hu",
+  romania: "ro", bucharest: "ro",
+  bulgaria: "bg", sofia: "bg",
+  croatia: "hr", zagreb: "hr",
+  slovakia: "sk", bratislava: "sk",
+  slovenia: "si", ljubljana: "si",
+  estonia: "ee", tallinn: "ee",
+  latvia: "lv", riga: "lv",
+  lithuania: "lt", vilnius: "lt",
+  luxembourg: "lu",
+  iceland: "is", reykjavik: "is",
+  serbia: "rs", belgrade: "rs",
+  ukraine: "ua", kyiv: "ua",
+  moldova: "md",
+  turkey: "tr", istanbul: "tr", ankara: "tr"
+};
+
 const detectLocationType = (location = "") => {
   const value = location
     .trim()
@@ -477,6 +517,15 @@ const detectLocationType = (location = "") => {
       type: "saudi",
       country: "sa",
     };
+  }
+
+  for (const [name, code] of Object.entries(EUROPE_LOCATION_MAP)) {
+    if (value.includes(name)) {
+      return {
+        type: "europe",
+        country: code,
+      };
+    }
   }
 
   for (const [name, code] of Object.entries(
@@ -628,6 +677,7 @@ const searchSerpApi = async ({
   locations,
   page = 1,
   resultsPerPage = 20,
+  countryCode = "",
 }) => {
   const searchLocations = Array.isArray(
     locations
@@ -652,6 +702,7 @@ const searchSerpApi = async ({
           location,
           page,
           resultsPerPage,
+          countryCode,
         });
 
       const jobs = Array.isArray(
@@ -807,6 +858,138 @@ const searchSaudiJobs = async ({
 // MAIN SEARCH
 // ======================================================
 
+const EUROPE_GOOGLE_LOCATIONS = {
+  gb: "London, United Kingdom",
+  de: "Berlin, Germany",
+  fr: "Paris, France",
+  it: "Rome, Italy",
+  es: "Madrid, Spain",
+  nl: "Amsterdam, Netherlands",
+  be: "Brussels, Belgium",
+  ch: "Zurich, Switzerland",
+  at: "Vienna, Austria",
+  ie: "Dublin, Ireland",
+  pt: "Lisbon, Portugal",
+  dk: "Copenhagen, Denmark",
+  se: "Stockholm, Sweden",
+  no: "Oslo, Norway",
+  fi: "Helsinki, Finland",
+  pl: "Warsaw, Poland",
+  cz: "Prague, Czech Republic",
+  gr: "Athens, Greece",
+  hu: "Budapest, Hungary",
+  ro: "Bucharest, Romania",
+  bg: "Sofia, Bulgaria",
+  hr: "Zagreb, Croatia",
+  sk: "Bratislava, Slovakia",
+  si: "Ljubljana, Slovenia",
+  ee: "Tallinn, Estonia",
+  lv: "Riga, Latvia",
+  lt: "Vilnius, Lithuania",
+  lu: "Luxembourg",
+  is: "Reykjavik, Iceland",
+  rs: "Belgrade, Serbia",
+  ua: "Kyiv, Ukraine",
+  md: "Chisinau, Moldova",
+  tr: "Istanbul, Turkey"
+};
+
+const searchEuropeJobs = async ({
+  query,
+  location,
+  countryCode,
+  page = 1,
+  resultsPerPage = 20,
+}) => {
+  const googleLocation =
+    EUROPE_GOOGLE_LOCATIONS[countryCode] || location;
+
+  const googleQuery =
+    `${query} jobs in ${location}`;
+
+  console.log("---------------------------------");
+  console.log("EUROPE GOOGLE JOBS PRIMARY");
+  console.log("QUERY:", googleQuery);
+  console.log("GOOGLE LOCATION:", googleLocation);
+  console.log("COUNTRY CODE:", countryCode);
+  console.log("---------------------------------");
+
+  const googleResult = await searchSerpApi({
+    query: googleQuery,
+    locations: [googleLocation],
+    page,
+    resultsPerPage,
+    countryCode,
+  });
+
+  let jobs = googleResult.jobs || [];
+
+  console.log("EUROPE GOOGLE RESULTS:", jobs.length);
+
+  // SECONDARY: Adzuna where this country is supported
+  if (
+    jobs.length < resultsPerPage &&
+    ADZUNA_COUNTRIES[countryCode]
+  ) {
+    console.log("---------------------------------");
+    console.log("EUROPE FALLBACK: ADZUNA");
+    console.log("COUNTRY:", countryCode);
+    console.log("---------------------------------");
+
+    const data = await searchAdzuna({
+      country: countryCode,
+      query,
+      location,
+      page,
+      resultsPerPage,
+    });
+
+    const adzunaJobs = (data.results || []).map((job) =>
+      normalizeAdzunaJob(job, countryCode)
+    );
+
+    jobs = jobs.concat(adzunaJobs);
+  }
+
+  // FINAL FALLBACK: Jooble
+  if (jobs.length < resultsPerPage) {
+    console.log("---------------------------------");
+    console.log("EUROPE FINAL FALLBACK: JOOBLE");
+    console.log("LOCATION:", location);
+    console.log("---------------------------------");
+
+    const result = await searchJoobleJobs({
+      query,
+      location,
+      page,
+      resultsPerPage,
+    });
+
+    const joobleJobs = (result.jobs || []).map(
+      normalizeJoobleJob
+    );
+
+    jobs = jobs.concat(joobleJobs);
+  }
+
+  return {
+    count: jobs.length,
+    jobs: jobs.slice(0, resultsPerPage),
+    sourceStatus: {
+      europe: true,
+      serpapi: googleResult.jobs.length > 0,
+      adzuna: jobs.some(
+        (job) => job.source === "Adzuna"
+      ),
+      jooble: jobs.some((job) =>
+        String(job.source || "")
+          .toLowerCase()
+          .includes("jooble")
+      ),
+    },
+  };
+};
+
 const searchJobs = async ({
   query = "internship",
   location = "",
@@ -849,6 +1032,21 @@ const searchJobs = async ({
   // ====================================================
   // PAKISTAN
   // ====================================================
+
+  if (
+    detected.type === "europe"
+  ) {
+    const result =
+      await searchEuropeJobs({
+        query: cleanQuery,
+        location: cleanLocation,
+        countryCode: detected.country,
+        page,
+        resultsPerPage,
+      });
+
+    return result;
+  }
 
   if (
     detected.type === "pakistan"
