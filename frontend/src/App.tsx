@@ -29,6 +29,8 @@ import Community from "./pages/Community";
 import Contact from "./pages/Contact";
 import Documentation from "./pages/Documentation";
 import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
+import RefundPolicy from "./pages/RefundPolicy";
 import Settings from "./pages/Settings";
 
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -222,6 +224,24 @@ function App() {
           }
         />
 
+        <Route
+          path="/terms"
+          element={
+            <PageLayout>
+              <Terms />
+            </PageLayout>
+          }
+        />
+
+        <Route
+          path="/refund-policy"
+          element={
+            <PageLayout>
+              <RefundPolicy />
+            </PageLayout>
+          }
+        />
+
         {/* =================================================
             AUTHENTICATED ROUTES
             Login required
@@ -270,7 +290,6 @@ function App() {
 
         {/* =================================================
             LEGACY INTERNSHIP FINDER URL
-            Keep for backward compatibility
         ================================================= */}
 
         <Route
@@ -286,9 +305,7 @@ function App() {
         {/* =================================================
             RESUME ANALYZER
             Login required.
-
-            ResumeAnalyzer handles its own
-            free-use/subscription logic.
+            Own free-use/subscription logic remains inside.
         ================================================= */}
 
         <Route
@@ -303,16 +320,7 @@ function App() {
         {/* =================================================
             CAREER ROADMAP
             Login required.
-
-            IMPORTANT:
-            Do NOT block the entire page here.
-
-            CareerRoadmap itself will:
-            1. Allow user to enter details.
-            2. Generate the roadmap.
-            3. Show a small preview.
-            4. Blur/hide the remaining roadmap.
-            5. Show SubscriptionModal for unsubscribed users.
+            Premium preview/access logic remains inside.
         ================================================= */}
 
         <Route
@@ -327,16 +335,7 @@ function App() {
         {/* =================================================
             AI INTERVIEW
             Login required.
-
-            IMPORTANT:
-            Do NOT block the entire page here.
-
-            AIInterview itself will:
-            1. Allow domain/difficulty selection.
-            2. Start the interview.
-            3. Allow the first 2 questions.
-            4. Lock the remaining interview for unsubscribed users.
-            5. Show SubscriptionModal after question 2.
+            Premium/free-use logic remains inside.
         ================================================= */}
 
         <Route
@@ -351,16 +350,7 @@ function App() {
         {/* =================================================
             LINKEDIN OPTIMIZER
             Login required.
-
-            IMPORTANT:
-            Do NOT block the entire page here.
-
-            LinkedInOptimizer itself will:
-            1. Allow the user to fill all LinkedIn details.
-            2. Analyze the profile.
-            3. Show a small preview.
-            4. Blur/hide the remaining analysis.
-            5. Show SubscriptionModal for unsubscribed users.
+            Premium preview/access logic remains inside.
         ================================================= */}
 
         <Route
@@ -374,7 +364,6 @@ function App() {
 
         {/* =================================================
             LEGACY AI INTERVIEW URL
-            Keep for backward compatibility
         ================================================= */}
 
         <Route

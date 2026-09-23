@@ -39,28 +39,28 @@ function Footer() {
 
             <div className="space-y-4 text-gray-400">
               <Link
-                to="/demo"
+                to="/resume-analyzer"
                 className="block hover:text-blue-400 transition"
               >
                 Resume Analyzer
               </Link>
 
               <Link
-                to="/demo"
+                to="/ai-interview"
                 className="block hover:text-blue-400 transition"
               >
                 AI Interviews
               </Link>
 
               <Link
-                to="/demo"
+                to="/career-roadmap"
                 className="block hover:text-blue-400 transition"
               >
                 Career Roadmap
               </Link>
 
               <Link
-                to="/demo"
+                to="/opportunity-finder"
                 className="block hover:text-blue-400 transition"
               >
                 Opportunity Finder
@@ -145,7 +145,7 @@ function Footer() {
         </div>
 
         {/* Bottom */}
-        <div className="border-t border-white/10 mt-14 pt-7 flex flex-col md:flex-row justify-between items-center gap-4 text-gray-500">
+        <div className="border-t border-white/10 mt-14pt-7 flex flex-col md:flex-row justify-between items-center gap-4 text-gray-500">
           <p className="text-center md:text-left">
             © 2026 CareerPilot AI. Founded & Created by Areeba Mansoor.
             All rights reserved.
