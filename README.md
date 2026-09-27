@@ -9,7 +9,7 @@ Instead of using separate tools for resumes, job discovery, interview preparatio
 **Focus:** AI • Full-Stack Development • Career Technology • Web Applications
 
 🔗 **Repository:** https://github.com/areebamansoor49-eng/CareerPilot_AI
-
+     🔗 Vercel Live URL : https://career-pilot-ai-tan-two.vercel.app/
 ---
 
 ## ✨ Overview
