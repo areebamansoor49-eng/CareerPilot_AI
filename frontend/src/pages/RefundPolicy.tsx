@@ -49,12 +49,26 @@ function RefundPolicy() {
               billing period unless otherwise stated during
               cancellation.
             </p>
+              <p className="mt-3">
+  Free trial: if you cancel before your 7-day free trial ends,
+  you will not be charged. If you do not cancel, the selected
+  plan ($5 per month or $50 per year) is billed automatically
+  when the trial ends and renews each billing period until you
+  cancel.
+</p>
           </section>
 
           <section>
             <h2 className="text-2xl font-semibold text-white">
               3. Refund Requests
             </h2>
+             <p className="mt-3">
+  You may request a refund within 14 days of a payment. Refunds
+  are also available for accidental duplicate charges, technical
+  issues that prevented reasonable use of the paid service, or
+  where a refund is required by applicable law.
+</p>
+
 
             <p className="mt-3">
               Refund requests may be considered when there
@@ -75,13 +89,13 @@ function RefundPolicy() {
             <h2 className="text-2xl font-semibold text-white">
               4. Non-Refundable Circumstances
             </h2>
-
+                
             <p className="mt-3">
-              Refunds may not be available solely because
-              you did not use the service after purchasing a
-              subscription, except where applicable law
-              provides otherwise.
-            </p>
+  After the 14-day refund window has passed, refunds are
+  generally not available for the current billing period, except
+  where applicable law provides otherwise. Cancelling stops
+  future renewals.
+</p>
 
             <p className="mt-3">
               Refund eligibility may also depend on the
@@ -141,11 +155,18 @@ function RefundPolicy() {
               8. Contact
             </h2>
 
-            <p className="mt-3">
-              If you have questions about cancellation,
-              billing, or refunds, please contact CareerPilot
-              AI through the Contact page.
-            </p>
+           <p className="mt-3">
+  CareerPilot AI is operated by Areeba Mansoor, an individual
+  software developer based in Pakistan. For questions about
+  cancellation, billing, or refunds, email{" "}
+  <a
+    href="mailto:areeba.dm052@gmail.com"
+    className="text-blue-400 hover:text-blue-300"
+  >
+    areeba.dm052@gmail.com
+  </a>{" "}
+  or use the Contact page.
+</p>
           </section>
         </div>
       </div>

@@ -383,11 +383,15 @@ function SubscriptionModal({
         </button>
 
         <p className="mt-3 text-center text-xs leading-5 text-slate-500">
-          Secure payment through Paddle •
-          Payment method required • No charge
-          during the 7-day trial • Automatically
-          renews after trial unless cancelled
-        </p>
+  Secure payment through Paddle •
+  Payment method required • No charge
+  during the 7-day trial • Automatically
+  renews after trial unless cancelled. By continuing you
+  agree to our{" "}
+  <a href="/terms" target="_blank" rel="noreferrer" className="underline hover:text-slate-300">Terms</a>
+  {" "}and{" "}
+  <a href="/refund-policy" target="_blank" rel="noreferrer" className="underline hover:text-slate-300">Refund Policy</a>.
+</p>
 
       </div>
     </div>

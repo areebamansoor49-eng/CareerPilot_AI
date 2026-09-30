@@ -65,10 +65,13 @@ function Privacy() {
               opportunities and plan their career development.
             </p>
 
-            <p className="mt-4 leading-8 text-slate-400">
-              In this policy, "CareerPilot AI", "we", "our" or "us" refers
-              to the CareerPilot AI platform and its operators.
-            </p>
+           <p className="mt-4 leading-8 text-slate-400">
+  In this policy, "CareerPilot AI", "we", "our" or "us" refers
+  to the CareerPilot AI platform and its operator, Areeba
+  Mansoor, an individual software developer based in Pakistan,
+  who acts as the data controller for personal information
+  processed through the service.
+</p>
           </section>
 
           {/* 2 */}
@@ -263,6 +266,13 @@ function Privacy() {
               chooses to sign in using Google. Third-party services may
               process information according to their own privacy policies.
             </p>
+              <p className="mt-4 leading-8 text-slate-400">
+  Payments and subscription billing are handled by Paddle, which
+  acts as merchant of record. We do not receive or store your
+  full payment card details. Resume and career content you submit
+  for analysis may be sent to third-party AI providers solely to
+  generate your results.
+</p>
 
             <p className="mt-4 leading-8 text-slate-400">
               We do not sell users' personal information.
@@ -360,11 +370,17 @@ function Privacy() {
               </h2>
             </div>
 
-            <p className="leading-8 text-slate-400">
-              If you have questions, concerns or requests regarding this
-              Privacy Policy or your personal information, please contact
-              CareerPilot AI through our Contact page.
-            </p>
+           <p className="leading-8 text-slate-400">
+  If you have questions, concerns or requests regarding this
+  Privacy Policy or your personal information, email{" "}
+  <a
+    href="mailto:areeba.dm052@gmail.com"
+    className="text-blue-400 hover:text-blue-300"
+  >
+    areeba.dm052@gmail.com
+  </a>{" "}
+  or contact CareerPilot AI through our Contact page.
+</p>
 
             <Link
               to="/contact"
@@ -392,11 +408,10 @@ function Privacy() {
 
         <div className="mt-12 text-center">
           <p className="text-sm leading-6 text-slate-500">
-            This Privacy Policy is intended to transparently describe
-            CareerPilot AI's current and planned privacy practices. It is not
-            legal advice. Applicable privacy requirements may vary depending
-            on where our users are located.
-          </p>
+  This Privacy Policy describes how CareerPilot AI handles
+  personal information. Applicable privacy requirements may vary
+  depending on where our users are located.
+</p>
         </div>
 
       </div>

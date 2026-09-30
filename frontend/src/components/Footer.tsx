@@ -146,10 +146,10 @@ function Footer() {
 
         {/* Bottom */}
         <div className="border-t border-white/10 mt-14pt-7 flex flex-col md:flex-row justify-between items-center gap-4 text-gray-500">
-          <p className="text-center md:text-left">
-            © 2026 CareerPilot AI. Founded & Created by Areeba Mansoor.
-            All rights reserved.
-          </p>
+         <p className="text-center md:text-left">
+  © 2026 CareerPilot AI. Founded & Created by Areeba Mansoor.
+  Contact: areeba.dm052@gmail.com. All rights reserved.
+</p>
 
           <div className="flex flex-wrap justify-center gap-6">
             <Link

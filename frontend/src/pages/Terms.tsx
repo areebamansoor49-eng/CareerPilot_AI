@@ -87,6 +87,16 @@ function Terms() {
               payment and billing terms presented during
               checkout.
             </p>
+            <p className="mt-3">
+  Free trial: paid plans include a 7-day free trial. A payment
+  method is required to start the trial and you will not be
+  charged during the trial. Unless you cancel before the trial
+  ends, your subscription will automatically convert to the
+  selected paid plan ($5 per month or $50 per year) and renew
+  every billing period until cancelled. Paddle acts as the
+  merchant of record and processes all payments.
+</p>
+
           </section>
 
           <section>
@@ -177,10 +187,17 @@ function Terms() {
             </h2>
 
             <p className="mt-3">
-              If you have questions about these Terms of
-              Service, please contact CareerPilot AI through
-              the Contact page.
-            </p>
+  CareerPilot AI is operated by Areeba Mansoor, an individual
+  software developer based in Pakistan. If you have questions
+  about these Terms of Service, please contact us at{" "}
+  <a
+    href="mailto:areeba.dm052@gmail.com"
+    className="text-blue-400 hover:text-blue-300"
+  >
+    areeba.dm052@gmail.com
+  </a>{" "}
+  or through the Contact page.
+</p>
           </section>
         </div>
       </div>
