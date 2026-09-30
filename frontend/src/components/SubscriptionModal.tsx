@@ -195,9 +195,7 @@ function SubscriptionModal({
       );
 
       setError(
-        err instanceof Error
-          ? err.message
-          : "Unable to start your free trial."
+        "Paddle subscription integration is currently under review. Subscriptions will be available once the payment setup is fully approved and activated."
       );
 
       setLoading(false);
