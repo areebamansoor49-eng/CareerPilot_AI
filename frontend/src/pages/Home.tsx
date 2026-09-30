@@ -1,9 +1,9 @@
 import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
-// import Stats from "../components/Stats";
+import Stats from "../components/Stats";
 import ReviewSlider from "../components/ReviewSlider";
 
-// import TrustedBy from "../components/TrustedBy";
+import TrustedBy from "../components/TrustedBy";
 import Testimonials from "../components/Testimonials";
 import Footer from "../components/Footer";
 
@@ -13,9 +13,9 @@ function Home() {
       <Navbar />
       <main>
         <Hero />
-        {/* <Stats /> */}
-
-        {/* <TrustedBy /> */}
+        <Stats />
+       
+        <TrustedBy />
         <Testimonials />
         <ReviewSlider />
       </main>

@@ -10,7 +10,7 @@ import { getCurrentUserEmail } from "../utils/subscription";
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
-  "https://career-pilot-backend-kappa.vercel.app";
+  "https://api.careerpilotai.net";
 
 const PADDLE_CLIENT_TOKEN =
   import.meta.env.VITE_PADDLE_CLIENT_TOKEN;

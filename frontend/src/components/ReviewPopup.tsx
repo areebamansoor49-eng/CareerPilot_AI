@@ -19,7 +19,7 @@ interface UserData {
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
-  "https://career-pilot-backend-kappa.vercel.app";
+  "https://api.careerpilotai.net";
 
 function ReviewPopup({
   onClose,

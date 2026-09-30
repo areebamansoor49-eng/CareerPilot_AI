@@ -82,7 +82,7 @@ function OpportunityFinder() {
       );
 
       const API_URL =
-  import.meta.env.VITE_API_URL || "https://career-pilot-backend-kappa.vercel.app";
+  import.meta.env.VITE_API_URL || "https://api.careerpilotai.net";
 
 const url = `${API_URL}/api/jobs/search?${params.toString()}`;
 

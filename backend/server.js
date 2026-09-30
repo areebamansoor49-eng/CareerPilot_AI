@@ -23,6 +23,8 @@ const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:5175",
+  "https://careerpilotai.net",
+  "https://www.careerpilotai.net",
   FRONTEND_URL,
 ];
 

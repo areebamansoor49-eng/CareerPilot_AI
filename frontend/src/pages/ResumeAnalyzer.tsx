@@ -62,7 +62,7 @@ interface ResumeData {
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
-  "https://career-pilot-backend-kappa.vercel.app";
+  "https://api.careerpilotai.net";
 
 function ResumeAnalyzer() {
   const navigate = useNavigate();
