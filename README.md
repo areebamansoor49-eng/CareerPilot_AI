@@ -10,6 +10,7 @@ Instead of using separate tools for resumes, job discovery, interview preparatio
 
 🔗 **Repository:** https://github.com/areebamansoor49-eng/CareerPilot_AI
      🔗 Vercel Live URL : https://career-pilot-ai-tan-two.vercel.app/
+     🔗  Live URL :   https://www.careerpilotai.net/
 ---
 
 ## ✨ Overview
